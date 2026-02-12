@@ -33,28 +33,52 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] overflow-x-hidden">
-      {/* Layout desktop: Sidebar + contenido */}
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as Tab)}
-        dropsForReview={dropsForReview}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <div className="min-h-screen bg-[#0a0a0a]">
+      {/* Sidebar desktop - siempre visible, posición normal */}
+      <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-[260px] lg:z-50">
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as Tab)}
+          dropsForReview={dropsForReview}
+          isOpen={true}
+          onClose={() => {}}
+        />
+      </div>
 
-      {/* Layout desktop: contenido principal */}
-      <div className="hidden lg:flex lg:min-h-screen lg:pl-[260px]">
-        <div className="flex-1 flex">
-          <main className="flex-1 min-w-0">
+      {/* Layout desktop: contenido principal (al lado de la sidebar) */}
+      <div className="hidden lg:flex lg:h-screen lg:overflow-hidden">
+        <div className="flex-1 flex min-w-0 pl-[260px]">
+          <main className="flex-1 min-w-0 overflow-y-auto">
             {renderContent()}
           </main>
           <RightSidebar onStartQuiz={() => setActiveTab('quiz')} />
         </div>
       </div>
 
+      {/* Sidebar móvil overlay */}
+      {sidebarOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0a0a0a] lg:hidden">
+            <Sidebar
+              activeTab={activeTab}
+              onTabChange={(tab) => {
+                setActiveTab(tab as Tab);
+                setSidebarOpen(false);
+              }}
+              dropsForReview={dropsForReview}
+              isOpen={true}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
+        </>
+      )}
+
       {/* Layout móvil: 1 columna */}
-      <div className="lg:hidden min-h-screen flex flex-col">
+      <div className="lg:hidden flex flex-col h-screen">
         {/* Header móvil */}
         <header className="flex items-center justify-between p-4 border-b border-[#2f3336] bg-[#0a0a0a] sticky top-0 z-30">
           <button 

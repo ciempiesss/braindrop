@@ -22,14 +22,22 @@ const STORAGE_KEY_COLLECTIONS = 'braindrop_collections';
 
 export function BrainDropProvider({ children }: { children: ReactNode }) {
   const [drops, setDrops] = useState<Drop[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_DROPS);
-    if (stored) return JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_DROPS);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn('Error parsing drops:', e);
+    }
     return SAMPLE_DROPS;
   });
 
   const [collections, setCollections] = useState<Collection[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_COLLECTIONS);
-    if (stored) return JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_COLLECTIONS);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn('Error parsing collections:', e);
+    }
     return SAMPLE_COLLECTIONS;
   });
 
