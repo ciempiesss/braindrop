@@ -1,13 +1,61 @@
+import { useState } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
-import { Folder, ChevronRight } from 'lucide-react';
+import { DropCard } from '@/components/DropCard';
+import { Folder, ChevronRight, ArrowLeft } from 'lucide-react';
+import type { Collection } from '@/types';
 
 export function Collections() {
-  const { collections } = useBrainDrop();
+  const { collections, drops } = useBrainDrop();
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+
+  const collectionDrops = selectedCollection
+    ? drops.filter((drop) => drop.collectionId === selectedCollection.id)
+    : [];
+
+  if (selectedCollection) {
+    return (
+      <div className="h-screen flex flex-col bg-[#0a0a0a]">
+        <header className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2f3336] p-4">
+          <button
+            onClick={() => setSelectedCollection(null)}
+            className="flex items-center gap-2 text-[#71767b] hover:text-[#e7e9ea] mb-2"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Volver
+          </button>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${selectedCollection.color}20` }}
+            >
+              <Folder className="w-5 h-5" style={{ color: selectedCollection.color }} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-[#e7e9ea]">{selectedCollection.name}</h1>
+              <p className="text-sm text-[#71767b]">{collectionDrops.length} drops</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          {collectionDrops.length === 0 ? (
+            <div className="p-8 text-center text-[#71767b]">
+              <p>No hay drops en esta colección aún</p>
+            </div>
+          ) : (
+            collectionDrops.map((drop) => (
+              <DropCard key={drop.id} drop={drop} />
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-screen flex flex-col">
-      <header className="sticky top-0 z-10 bg-background border-b border-border p-4">
-        <h1 className="text-xl font-bold">Colecciones</h1>
+    <div className="h-screen flex flex-col bg-[#0a0a0a]">
+      <header className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2f3336] p-4">
+        <h1 className="text-xl font-bold text-[#e7e9ea]">Colecciones</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -15,7 +63,8 @@ export function Collections() {
           {collections.map((collection) => (
             <div
               key={collection.id}
-              className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-colors cursor-pointer group"
+              onClick={() => setSelectedCollection(collection)}
+              className="bg-[#16181c] border border-[#2f3336] rounded-xl p-4 hover:border-[#7c3aed] transition-colors cursor-pointer group"
             >
               <div className="flex items-center gap-4">
                 <div
@@ -26,22 +75,22 @@ export function Collections() {
                 </div>
 
                 <div className="flex-1">
-                  <h3 className="font-semibold group-hover:text-primary transition-colors">
+                  <h3 className="font-semibold text-[#e7e9ea] group-hover:text-[#7c3aed] transition-colors">
                     {collection.name}
                   </h3>
                   {collection.description && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[#71767b]">
                       {collection.description}
                     </p>
                   )}
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-bold">{collection.dropCount}</span>
-                  <p className="text-xs text-muted-foreground">drops</p>
+                  <span className="text-2xl font-bold text-[#e7e9ea]">{collection.dropCount}</span>
+                  <p className="text-xs text-[#71767b]">drops</p>
                 </div>
 
-                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                <ChevronRight className="w-5 h-5 text-[#71767b]" />
               </div>
             </div>
           ))}
