@@ -7,6 +7,46 @@ export type DropType =
   | 'connection'
   | 'code';
 
+export type VisualType = 'flow' | 'matrix' | 'code' | 'funnel' | 'pyramid' | 'list' | 'comparison';
+
+export interface VisualNode {
+  label: string;
+  icon: string;
+  color: string;
+  desc?: string;
+}
+
+export interface VisualMatrixItem {
+  severity: string;
+  priority: string;
+  bg: string;
+  border: string;
+  text: string;
+}
+
+export interface VisualStep {
+  label: string;
+  icon: string;
+  color: string;
+}
+
+export interface VisualPyramidLevel {
+  label: string;
+  width: string;
+  color: string;
+  count: string;
+}
+
+export interface VisualData {
+  type: VisualType;
+  nodes?: VisualNode[];
+  items?: VisualMatrixItem[];
+  code?: string;
+  steps?: VisualStep[];
+  levels?: VisualPyramidLevel[];
+  comparison?: { left: string; right: string }[];
+}
+
 export interface Drop {
   id: string;
   title: string;
@@ -17,6 +57,8 @@ export interface Drop {
   codeSnippet?: string;
   imageUrl?: string;
   visualContent?: string;
+  visualType?: VisualType;
+  visualData?: VisualData;
   createdAt: string;
   updatedAt: string;
   

@@ -62,7 +62,7 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
           content: response,
         },
       ]);
-    } catch (error) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {

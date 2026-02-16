@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import type { Drop, Collection } from '@/types';
 import { SAMPLE_DROPS, SAMPLE_COLLECTIONS } from '@/data/seed';
+import { generateId } from '@/lib/utils';
 
 interface BrainDropContextType {
   drops: Drop[];
@@ -17,42 +18,86 @@ interface BrainDropContextType {
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
 
-const STORAGE_KEY_DROPS = 'braindrop_drops';
-const STORAGE_KEY_COLLECTIONS = 'braindrop_collections';
+// Keys
+const KEY_DROPS = 'bd_drops';
+const KEY_COLLECTIONS = 'bd_collections';
+const KEY_USER_DROPS = 'bd_user_drops';
+const KEY_HASH = 'bd_data_hash';
+
+// Generate hash from seed data
+function generateDataHash(data: unknown): string {
+  const str = JSON.stringify(data);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
+const SEED_HASH = generateDataHash({ drops: SAMPLE_DROPS, collections: SAMPLE_COLLECTIONS });
+
+// Safe localStorage wrapper
+function getItem<T>(key: string, fallback: T): T {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return JSON.parse(stored);
+  } catch { }
+  return fallback;
+}
+
+function setItem(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn('Storage error:', e);
+  }
+}
 
 export function BrainDropProvider({ children }: { children: ReactNode }) {
-  const [drops, setDrops] = useState<Drop[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_DROPS);
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      console.warn('Error parsing drops:', e);
+  // Check if seed data changed - if so, merge with user data
+  const initialDrops = useMemo(() => {
+    const storedHash = getItem<string>(KEY_HASH, '');
+    const userDrops = getItem<Drop[]>(KEY_USER_DROPS, []);
+    
+    // If seed changed, merge user drops with new seed
+    if (storedHash !== SEED_HASH) {
+      const userIds = new Set(userDrops.map(d => d.id));
+      const newDrops = SAMPLE_DROPS.filter(d => !userIds.has(d.id));
+      const merged = [...newDrops, ...userDrops];
+      setItem(KEY_DROPS, merged);
+      setItem(KEY_HASH, SEED_HASH);
+      return merged;
     }
-    return SAMPLE_DROPS;
-  });
+    
+    return getItem<Drop[]>(KEY_DROPS, SAMPLE_DROPS);
+  }, []);
 
-  const [collections, setCollections] = useState<Collection[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY_COLLECTIONS);
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      console.warn('Error parsing collections:', e);
-    }
-    return SAMPLE_COLLECTIONS;
-  });
+  const [drops, setDrops] = useState<Drop[]>(initialDrops);
 
+  const initialCollections = useMemo(() => {
+    return getItem<Collection[]>(KEY_COLLECTIONS, SAMPLE_COLLECTIONS);
+  }, []);
+
+  const [collections, setCollections] = useState<Collection[]>(initialCollections);
+
+  // Persist on change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_DROPS, JSON.stringify(drops));
+    setItem(KEY_DROPS, drops);
+    // Save user-created drops separately for merging
+    const userDrops = drops.filter(d => !d.id.startsWith('q') && !d.id.match(/^\d+$/));
+    setItem(KEY_USER_DROPS, userDrops);
   }, [drops]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COLLECTIONS, JSON.stringify(collections));
+    setItem(KEY_COLLECTIONS, collections);
   }, [collections]);
 
   const addDrop: BrainDropContextType['addDrop'] = (dropData) => {
     const newDrop: Drop = {
       ...dropData,
-      id: Math.random().toString(36).substring(2, 15),
+      id: generateId(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       interval: 1,
@@ -79,16 +124,20 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   const addCollection: BrainDropContextType['addCollection'] = (collectionData) => {
     const newCollection: Collection = {
       ...collectionData,
-      id: Math.random().toString(36).substring(2, 15),
+      id: generateId(),
       createdAt: new Date().toISOString(),
       dropCount: 0,
     };
     setCollections((prev) => [...prev, newCollection]);
   };
 
-  const getDropsForReview: BrainDropContextType['getDropsForReview'] = () => {
+  const dropsForReview = useMemo(() => {
     const now = new Date();
     return drops.filter((drop) => new Date(drop.nextReviewDate) <= now);
+  }, [drops]);
+
+  const getDropsForReview: BrainDropContextType['getDropsForReview'] = () => {
+    return dropsForReview;
   };
 
   const reviewDrop: BrainDropContextType['reviewDrop'] = (id, quality) => {

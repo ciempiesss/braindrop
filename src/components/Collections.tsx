@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
 import { Folder, ChevronRight, ArrowLeft } from 'lucide-react';
@@ -8,9 +8,25 @@ export function Collections() {
   const { collections, drops } = useBrainDrop();
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
 
-  const collectionDrops = selectedCollection
-    ? drops.filter((drop) => drop.collectionId === selectedCollection.id)
-    : [];
+  const collectionDrops = useMemo(
+    () => selectedCollection
+      ? drops.filter((drop) => drop.collectionId === selectedCollection.id)
+      : [],
+    [selectedCollection, drops]
+  );
+
+  const dropCounts = useMemo(
+    () => {
+      const counts: Record<string, number> = {};
+      drops.forEach((drop) => {
+        if (drop.collectionId) {
+          counts[drop.collectionId] = (counts[drop.collectionId] || 0) + 1;
+        }
+      });
+      return counts;
+    },
+    [drops]
+  );
 
   if (selectedCollection) {
     return (
@@ -61,10 +77,10 @@ export function Collections() {
       <div className="flex-1 overflow-y-auto p-4">
         <div className="grid gap-3">
           {collections.map((collection) => (
-            <div
+            <button
               key={collection.id}
               onClick={() => setSelectedCollection(collection)}
-              className="bg-[#16181c] border border-[#2f3336] rounded-xl p-4 hover:border-[#7c3aed] transition-colors cursor-pointer group"
+              className="w-full text-left bg-[#16181c] border border-[#2f3336] rounded-xl p-4 hover:border-[#7c3aed] transition-colors group"
             >
               <div className="flex items-center gap-4">
                 <div
@@ -86,13 +102,13 @@ export function Collections() {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-bold text-[#e7e9ea]">{collection.dropCount}</span>
+                  <span className="text-2xl font-bold text-[#e7e9ea]">{dropCounts[collection.id] || 0}</span>
                   <p className="text-xs text-[#71767b]">drops</p>
                 </div>
 
                 <ChevronRight className="w-5 h-5 text-[#71767b]" />
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

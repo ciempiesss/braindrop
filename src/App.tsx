@@ -5,6 +5,7 @@ import { Feed } from '@/components/Feed';
 import { RightSidebar } from '@/components/RightSidebar';
 import { Quiz } from '@/components/Quiz';
 import { Collections } from '@/components/Collections';
+import { Settings } from '@/components/Settings';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +28,8 @@ function AppContent() {
         return <Quiz />;
       case 'collections':
         return <Collections />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Feed />;
     }
@@ -105,6 +108,7 @@ function AppContent() {
               { id: 'feed', icon: '🏠', label: 'Feed' },
               { id: 'quiz', icon: '🎯', label: 'Quiz' },
               { id: 'collections', icon: '📚', label: 'Colecciones' },
+              { id: 'settings', icon: '⚙️', label: 'Config' },
             ].map((item) => (
               <button
                 key={item.id}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { Target, ChevronRight, Check, X, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,18 +18,25 @@ export function Quiz() {
   const dropsForReview = getDropsForReview();
   const currentDrop = dropsForReview[currentIndex];
 
-  const generateOptions = () => {
+  const options = useMemo(() => {
     if (!currentDrop) return [];
     const otherDrops = dropsForReview.filter((d) => d.id !== currentDrop.id);
-    const shuffled = otherDrops.sort(() => Math.random() - 0.5).slice(0, 3);
-    const options = [currentDrop, ...shuffled].sort(() => Math.random() - 0.5);
-    return options.map((d, i) => ({
+    const shuffled = otherDrops
+      .map((item, idx) => ({ item, rand: Math.sin(currentIndex * 1000 + idx) * 10000 }))
+      .sort((a, b) => a.rand - b.rand)
+      .slice(0, 3)
+      .map(({ item }) => item);
+    const opts = [currentDrop, ...shuffled]
+      .map((item, idx) => ({ item, rand: Math.sin(currentIndex * 2000 + idx) * 10000 }))
+      .sort((a, b) => a.rand - b.rand)
+      .map(({ item }) => item);
+    return opts.map((d, i) => ({
       id: i,
       text: d.title,
       content: d.content,
       isCorrect: d.id === currentDrop.id,
     }));
-  };
+  }, [currentDrop, dropsForReview, currentIndex]);
 
   const handleQuality = (quality: number) => {
     if (!currentDrop) return;
@@ -55,7 +62,7 @@ export function Quiz() {
   const handleMultipleChoice = (optionId: number) => {
     if (selectedOption !== null) return;
     setSelectedOption(optionId);
-    const option = generateOptions().find((o) => o.id === optionId);
+    const option = options.find((o) => o.id === optionId);
     handleQuality(option?.isCorrect ? 4 : 1);
   };
 
@@ -212,7 +219,7 @@ export function Quiz() {
             </div>
 
             <div className="space-y-2">
-              {generateOptions().map((option) => (
+              {options.map((option) => (
                 <button
                   key={option.id}
                   onClick={() => handleMultipleChoice(option.id)}

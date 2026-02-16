@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
 import { Compose } from '@/components/Compose';
@@ -12,8 +12,9 @@ export function Feed() {
   const [showCompose, setShowCompose] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
 
-  const sortedDrops = [...drops].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const sortedDrops = useMemo(
+    () => [...drops].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [drops]
   );
 
   return (
