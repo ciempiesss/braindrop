@@ -6,11 +6,16 @@ import { formatRelativeDate } from '@/lib/utils';
 import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useBrainDrop } from '@/hooks/useBrainDrop';
 
 interface DropCardProps {
   drop: Drop;
   onReview?: () => void;
   onAI?: () => void;
+  onToggleLike?: (id: string) => void;
+  onMarkViewed?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onEdit?: (drop: Drop) => void;
 }
 
 const STORAGE_KEY = 'braindrop_settings';
@@ -31,7 +36,9 @@ function getFontScale(): string {
       const settings = JSON.parse(stored);
       return FONT_SIZE_SCALE[settings.fontSize as FontSize] || '1';
     }
-  } catch { }
+  } catch {
+    // ignore storage errors
+  }
   return '1';
 }
 
@@ -188,16 +195,25 @@ const ComparisonVisual = ({ data }: { data: VisualData }) => {
 
 // ============= MAIN CARD =============
 
-export function DropCard({ drop, onReview, onAI }: DropCardProps) {
+export function DropCard({ drop, onReview, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
   const [fontScale, setFontScale] = useState(() => getFontScale());
+  const { toggleLike: contextToggleLike } = useBrainDrop();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ title: drop.title, content: drop.content, type: drop.type, tags: drop.tags.join(', ') });
+
+  const handleToggleLike = onToggleLike || contextToggleLike;
+
+  useEffect(() => {
+    if (onMarkViewed && !drop.viewed) {
+      onMarkViewed(drop.id);
+    }
+  }, [drop.id, drop.viewed, onMarkViewed]);
 
   useEffect(() => {
     const handleStorage = () => setFontScale(getFontScale());
     window.addEventListener('storage', handleStorage);
-    const interval = setInterval(() => setFontScale(getFontScale()), 500);
     return () => {
       window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
     };
   }, []);
 
@@ -298,14 +314,48 @@ export function DropCard({ drop, onReview, onAI }: DropCardProps) {
       {/* Actions */}
       <div className="flex items-center gap-4 mt-3 pt-2 border-t border-white/5">
         <button 
+          onClick={() => {
+            if (confirm('¿Estás seguro de que quieres eliminar este drop?')) {
+              onDelete?.(drop.id);
+            }
+          }}
+          className="flex items-center gap-1.5 text-white/40 hover:text-red-400 transition-colors text-xs"
+        >
+          <span className="text-sm">🗑️</span>
+          <span>Eliminar</span>
+        </button>
+        <button 
+          onClick={() => setShowEditModal(true)}
+          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
+        >
+          <span className="text-sm">✏️</span>
+          <span>Editar</span>
+        </button>
+        <button 
+          onClick={() => {
+            navigator.clipboard.writeText(`${drop.title}\n\n${drop.content}`);
+            alert('Copiado al portapapeles');
+          }}
+          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
+        >
+          <span className="text-sm">📤</span>
+          <span>Compartir</span>
+        </button>
+        <button 
           onClick={onReview}
           className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
         >
           <span className="text-sm">🔄</span>
           <span>Repetir</span>
         </button>
-        <button className="flex items-center gap-1.5 text-white/40 hover:text-rose-400 transition-colors text-xs">
-          <span className="text-sm">❤️</span>
+        <button 
+          onClick={() => handleToggleLike(drop.id)}
+          className={cn(
+            "flex items-center gap-1.5 transition-colors text-xs",
+            drop.liked ? "text-rose-400" : "text-white/40 hover:text-rose-400"
+          )}
+        >
+          <span className="text-sm">{drop.liked ? '❤️' : '🤍'}</span>
           <span>Guardar</span>
         </button>
         <button 
@@ -317,6 +367,78 @@ export function DropCard({ drop, onReview, onAI }: DropCardProps) {
         </button>
         <span className="text-white/30 text-xs">{formatRelativeDate(drop.createdAt)}</span>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#1a1a1f] rounded-2xl p-6 w-full max-w-md border border-white/10">
+            <h3 className="text-lg font-bold text-white mb-4">Editar Drop</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Título</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Contenido</label>
+                <textarea
+                  value={editForm.content}
+                  onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm h-24"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Tipo</label>
+                <select
+                  value={editForm.type}
+                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value as Drop['type'] })}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+                >
+                  {Object.entries(DROP_TYPE_CONFIG).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Tags (separados por coma)</label>
+                <input
+                  type="text"
+                  value={editForm.tags}
+                  onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 py-2 text-white/60 hover:text-white transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  onEdit?.({
+                    ...drop,
+                    title: editForm.title,
+                    content: editForm.content,
+                    type: editForm.type as Drop['type'],
+                    tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean)
+                  });
+                  setShowEditModal(false);
+                }}
+                className="flex-1 bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-2 rounded-lg text-sm font-medium"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Type, RotateCcw } from 'lucide-react';
+import { Type, RotateCcw, Folder, Eye, EyeOff } from 'lucide-react';
+import { useBrainDrop } from '@/hooks/useBrainDrop';
 
 export type FontSize = 'sm' | 'md' | 'lg' | 'xl';
 
 interface Settings {
   fontSize: FontSize;
+  visibleCollections: string[];
 }
 
 const STORAGE_KEY = 'braindrop_settings';
@@ -27,11 +29,17 @@ const FONT_SIZE_MAP: Record<FontSize, string> = {
 function loadSettings(): Settings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        fontSize: parsed.fontSize || 'md',
+        visibleCollections: parsed.visibleCollections || []
+      };
+    }
   } catch {
     console.warn('Error loading settings');
   }
-  return { fontSize: 'md' };
+  return { fontSize: 'md', visibleCollections: [] };
 }
 
 function applyFontSize(fontSize: FontSize) {
@@ -40,6 +48,7 @@ function applyFontSize(fontSize: FontSize) {
 
 export function Settings() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
+  const { collections } = useBrainDrop();
 
   useEffect(() => {
     applyFontSize(settings.fontSize);
@@ -50,8 +59,29 @@ export function Settings() {
     setSettings((prev) => ({ ...prev, fontSize }));
   };
 
+  const toggleCollectionVisibility = (collectionId: string) => {
+    setSettings((prev) => {
+      const currentlyVisible = prev.visibleCollections;
+      if (currentlyVisible.includes(collectionId)) {
+        return {
+          ...prev,
+          visibleCollections: currentlyVisible.filter(id => id !== collectionId)
+        };
+      } else {
+        return {
+          ...prev,
+          visibleCollections: [...currentlyVisible, collectionId]
+        };
+      }
+    });
+  };
+
+  const isCollectionVisible = (collectionId: string) => {
+    return settings.visibleCollections.length === 0 || settings.visibleCollections.includes(collectionId);
+  };
+
   const resetSettings = () => {
-    const defaultSettings = { fontSize: 'md' as FontSize };
+    const defaultSettings: Settings = { fontSize: 'md', visibleCollections: [] };
     setSettings(defaultSettings);
     applyFontSize(defaultSettings.fontSize);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
@@ -95,6 +125,46 @@ export function Settings() {
             <p style={{ fontSize: FONT_SIZE_MAP[settings.fontSize] }}>
               El veloz murciélago hindú comía feliz cardillo y kiwi.
             </p>
+          </div>
+        </section>
+
+        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+          <div className="flex items-center gap-3 mb-4">
+            <Folder className="w-5 h-5 text-[#7c3aed]" />
+            <h2 className="text-lg font-semibold">Colecciones en Home</h2>
+          </div>
+          
+          <p className="text-sm text-[#71767b] mb-4">
+            Selecciona las colecciones que quieres ver en el feed. Si no seleccionas ninguna, se muestran todas.
+          </p>
+
+          <div className="space-y-2">
+            {collections.map((collection) => (
+              <button
+                key={collection.id}
+                onClick={() => toggleCollectionVisibility(collection.id)}
+                className={cn(
+                  'w-full flex items-center justify-between p-3 rounded-lg border transition-all',
+                  isCollectionVisible(collection.id)
+                    ? 'border-[#7c3aed] bg-[#7c3aed]/10 text-[#e7e9ea]'
+                    : 'border-[#2f3336] hover:border-[#7c3aed]/50 text-[#71767b]'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: collection.color || '#7c3aed' }}
+                  />
+                  <span className="font-medium">{collection.name}</span>
+                  <span className="text-xs text-white/40">({collection.dropCount})</span>
+                </div>
+                {isCollectionVisible(collection.id) ? (
+                  <Eye className="w-4 h-4 text-[#7c3aed]" />
+                ) : (
+                  <EyeOff className="w-4 h-4" />
+                )}
+              </button>
+            ))}
           </div>
         </section>
 

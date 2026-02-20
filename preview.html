@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BrainDrop - Visual Preview</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Outfit', sans-serif; background: #030305; }
+    
+    /* Custom animations */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1); }
+      50% { box-shadow: 0 0 30px rgba(124, 58, 237, 0.5), 0 0 60px rgba(124, 58, 237, 0.2); }
+    }
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-shimmer { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); background-size: 200% 100%; animation: shimmer 2s infinite; }
+    .animate-glow { animation: glow-pulse 2s ease-in-out infinite; }
+    
+    /* Cards */
+    .card-neon {
+      background: linear-gradient(145deg, #0f0a1a 0%, #1a0f2e 100%);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    .card-neon::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.1), transparent);
+      animation: shimmer 3s infinite;
+    }
+    
+    /* Code blocks */
+    .code-block {
+      background: linear-gradient(180deg, #0d0d12 0%, #12121a 100%);
+      border: 1px solid rgba(255,255,255,0.06);
+      position: relative;
+    }
+    .code-block::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 32px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .code-block .mac-dots {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+    }
+    .code-block .mac-dots span {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    
+    /* Visual boxes */
+    .visual-box {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+    }
+    
+    /* Pills */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+    }
+    
+    /* Syntax colors */
+    .syn-keyword { color: #c792ea; }
+    .syn-string { color: #c3e88d; }
+    .syn-function { color: #82aaff; }
+    .syn-comment { color: #546e7a; font-style: italic; }
+    .syn-number { color: #f78c6c; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Sample drops con VISUALES RICOS
+    const drops = [
+      {
+        id: 1,
+        title: 'STLC: Software Testing Life Cycle',
+        content: 'El ciclo de vida del testing tiene 5 fases que se siguen en orden. Cada fase tiene entregables específicos.',
+        type: 'definition',
+        tags: ['qa', 'stlc', 'fundamentals'],
+        visual: {
+          type: 'flow',
+          nodes: [
+            { label: 'Requirements', icon: '📋', color: '#7c3aed', desc: 'Análisis de requisitos' },
+            { label: 'Planning', icon: '📝', color: '#2563eb', desc: 'Plan de pruebas' },
+            { label: 'Design', icon: '🎨', color: '#06b6d4', desc: 'Casos de prueba' },
+            { label: 'Execution', icon: '▶️', color: '#10b981', desc: 'Ejecución' },
+            { label: 'Closure', icon: '🏁', color: '#f59e0b', desc: 'Reporte final' }
+          ]
+        }
+      },
+      {
+        id: 2,
+        title: 'Severity vs Priority',
+        content: 'Son conceptos diferentes que seconfunden. Severity = impacto técnico. Priority = urgencia de negocio.',
+        type: 'definition',
+        tags: ['qa', 'severity', 'priority'],
+        visual: {
+          type: 'matrix',
+          items: [
+            { severity: 'Critical', priority: 'Hotfix', bg: 'bg-red-500/20', border: 'border-red-500/50', text: 'text-red-400' },
+            { severity: 'High', priority: 'This Sprint', bg: 'bg-orange-500/20', border: 'border-orange-500/50', text: 'text-orange-400' },
+            { severity: 'Medium', priority: 'Backlog', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', text: 'text-yellow-400' },
+            { severity: 'Low', priority: 'Maybe', bg: 'bg-gray-500/20', border: 'border-gray-500/50', text: 'text-gray-400' }
+          ]
+        }
+      },
+      {
+        id: 3,
+        title: 'SQL: Validar Descuentos',
+        content: 'Query para verificar que el descuento se aplicó correctamente en la base de datos.',
+        type: 'code',
+        tags: ['qa', 'sql', 'validation'],
+        visual: {
+          type: 'code',
+          code: `SELECT order_id, 
+       original_price, 
+       discount_amount, 
+       final_price
+FROM order_items 
+WHERE order_id = 'ORD-2026-0211'
+  AND final_price != (original_price - discount_amount);`
+        }
+      },
+      {
+        id: 4,
+        title: 'E-commerce Critical Path',
+        content: 'El flujo sagrado que debe funcionar siempre. Si esto falla, el negocio pierde dinero.',
+        type: 'hook',
+        tags: ['qa', 'ecommerce', 'critical'],
+        visual: {
+          type: 'funnel',
+          steps: [
+            { label: 'Search', icon: '🔍', color: '#60a5fa' },
+            { label: 'Cart', icon: '🛒', color: '#a78bfa' },
+            { label: 'Checkout', icon: '💳', color: '#f472b6' },
+            { label: 'Payment', icon: '💰', color: '#34d399' },
+            { label: 'Confirmation', icon: '✅', color: '#fbbf24' }
+          ]
+        }
+      },
+      {
+        id: 5,
+        title: 'Test Pyramid',
+        content: '70% Unit, 20% Integration, 10% E2E. Cada nivel es 10x más lento y costoso.',
+        type: 'definition',
+        tags: ['qa', 'automation', 'pyramid'],
+        visual: {
+          type: 'pyramid',
+          levels: [
+            { label: 'E2E Tests', width: '30%', color: '#ef4444', count: '10%' },
+            { label: 'Integration', width: '50%', color: '#f59e0b', count: '20%' },
+            { label: 'Unit Tests', width: '100%', color: '#10b981', count: '70%' }
+          ]
+        }
+      }
+    ];
+
+    // Componentes de VISUALES
+    const FlowVisual = ({ nodes }) => (
+      <div className="relative py-4">
+        <div className="flex items-center justify-between gap-2">
+          {nodes.map((node, i) => (
+            <React.Fragment key={i}>
+              <div className="flex flex-col items-center">
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl animate-float"
+                  style={{ backgroundColor: node.color + '20', border: `1px solid ${node.color}40`, animationDelay: `${i * 0.2}s` }}
+                >
+                  {node.icon}
+                </div>
+                <span className="mt-2 text-xs font-semibold text-white">{node.label}</span>
+                <span className="text-[10px] text-white/50">{node.desc}</span>
+              </div>
+              {i < nodes.length - 1 && (
+                <svg width="24" height="24" className="text-white/20" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
+
+    const MatrixVisual = ({ items }) => (
+      <div className="grid grid-cols-2 gap-2">
+        {items.map((item, i) => (
+          <div 
+            key={i} 
+            className={`${item.bg} ${item.border} border rounded-xl p-3 text-center`}
+          >
+            <div className={`text-xs font-bold ${item.text} mb-1`}>{item.severity}</div>
+            <div className="text-[10px] text-white/50">→ {item.priority}</div>
+          </div>
+        ))}
+      </div>
+    );
+
+    const CodeVisual = ({ code }) => (
+      <div className="code-block rounded-xl overflow-hidden">
+        <div className="mac-dots">
+          <span style={{background: '#ff5f56'}}></span>
+          <span style={{background: '#ffbd2e'}}></span>
+          <span style={{background: '#27c93f'}}></span>
+        </div>
+        <pre className="p-4 pt-10 text-sm font-mono overflow-x-auto" style={{color: '#a6accd'}}>
+          <code dangerouslySetInnerHTML={{__html: 
+            code.replace(/SELECT|FROM|WHERE|AND|ORDER|BY|LIMIT|GROUP|HAVING/gi, '<span class="syn-keyword">$&</span>')
+                .replace(/'[^']*'/g, '<span class="syn-string">$&</span>')
+                .replace(/--.*/g, '<span class="syn-comment">$&</span>')
+                .replace(/\b\d+\b/g, '<span class="syn-number">$&</span>')
+          }}></code>
+        </pre>
+      </div>
+    );
+
+    const FunnelVisual = ({ steps }) => (
+      <div className="space-y-1 py-2">
+        {steps.map((step, i) => (
+          <div 
+            key={i}
+            className="flex items-center gap-3 p-3 rounded-lg"
+            style={{ 
+              background: `${step.color}10`,
+              borderLeft: `3px solid ${step.color}`,
+              width: `${100 - i * 15}%`
+            }}
+          >
+            <span className="text-lg">{step.icon}</span>
+            <span className="text-sm font-medium text-white">{step.label}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+    const PyramidVisual = ({ levels }) => (
+      <div className="py-4 space-y-1">
+        {levels.map((level, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div 
+              className="rounded-r-lg py-2 text-right text-xs font-bold text-white transition-all duration-500"
+              style={{ 
+                width: level.width, 
+                background: `linear-gradient(90deg, ${level.color}80, ${level.color})`,
+                minWidth: '60px'
+              }}
+            >
+              {level.count}
+            </div>
+            <span className="text-xs text-white/60">{level.label}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+    // MAIN CARD COMPONENT
+    const DropCard = ({ drop }) => {
+      const typeColors = {
+        definition: { bg: 'bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-400', icon: '💠' },
+        hook: { bg: 'bg-amber-500/20', border: 'border-amber-500/30', text: 'text-amber-400', icon: '⚡' },
+        code: { bg: 'bg-violet-500/20', border: 'border-violet-500/30', text: 'text-violet-400', icon: '⚙️' },
+        insight: { bg: 'bg-rose-500/20', border: 'border-rose-500/30', text: 'text-rose-400', icon: '💡' },
+      };
+      const colors = typeColors[drop.type] || typeColors.definition;
+
+      const renderVisual = () => {
+        if (!drop.visual) return null;
+        switch (drop.visual.type) {
+          case 'flow': return <FlowVisual nodes={drop.visual.nodes} />;
+          case 'matrix': return <MatrixVisual items={drop.visual.items} />;
+          case 'code': return <CodeVisual code={drop.visual.code} />;
+          case 'funnel': return <FunnelVisual steps={drop.visual.steps} />;
+          case 'pyramid': return <PyramidVisual levels={drop.visual.levels} />;
+          default: return null;
+        }
+      };
+
+      return (
+        <div className="card-neon rounded-2xl p-5 mb-4">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`pill ${colors.bg} ${colors.border} border ${colors.text}`}>
+              <span>{colors.icon}</span>
+              {drop.type}
+            </span>
+            <div className="flex gap-1">
+              {drop.tags.map((tag, i) => (
+                <span key={i} className="text-xs text-white/40">#{tag}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Title & Content */}
+          <h3 className="text-lg font-bold text-white mb-2">{drop.title}</h3>
+          <p className="text-sm text-white/60 mb-4 leading-relaxed">{drop.content}</p>
+
+          {/* Visual */}
+          {drop.visual && (
+            <div className="visual-box rounded-xl p-4">
+              {renderVisual()}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // APP
+    function App() {
+      const [active, setActive] = useState(0);
+      const drop = drops[active];
+
+      return (
+        <div className="min-h-screen p-8" style={{background: 'radial-gradient(ellipse at top, #1a1025 0%, #030305 50%)'}}>
+          <div className="max-w-md mx-auto">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#7c3aed] via-[#2563eb] to-[#06b6d4] bg-clip-text text-transparent">
+                BrainDrop
+              </h1>
+              <p className="text-white/40 text-sm mt-1">Visual Preview</p>
+            </div>
+
+            {/* Drop selector */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              {drops.map((d, i) => (
+                <button
+                  key={d.id}
+                  onClick={() => setActive(i)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                    active === i 
+                      ? 'bg-[#7c3aed] text-white' 
+                      : 'bg-white/5 text-white/40 hover:text-white'
+                  }`}
+                >
+                  {i + 1}. {d.title.split(':')[0]}
+                </button>
+              ))}
+            </div>
+
+            {/* Card */}
+            <DropCard drop={drop} />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

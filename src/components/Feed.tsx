@@ -1,31 +1,151 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
 import { Compose } from '@/components/Compose';
 import { AIChat } from '@/components/AIChat';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Drop } from '@/types';
 
-export function Feed() {
-  const { drops, addDrop } = useBrainDrop();
+const SETTINGS_KEY = 'braindrop_settings';
+
+function loadVisibleCollections(): string[] {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) {
+      const settings = JSON.parse(stored);
+      return settings.visibleCollections || [];
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return [];
+}
+
+const defaultVisibleCollections = typeof window !== 'undefined' ? loadVisibleCollections() : [];
+
+export function Feed({ 
+  selectedTag, 
+  onClearTagFilter 
+}: { 
+  selectedTag?: string | null; 
+  onClearTagFilter?: () => void;
+}) {
+  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop, searchDrops } = useBrainDrop();
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showRefreshIndicator, setShowRefreshIndicator] = useState(false);
+  const [visibleCollections, setVisibleCollections] = useState<string[]>(defaultVisibleCollections);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const touchStartY = useRef(0);
+  const currentPullDistance = useRef(0);
+  
+  useEffect(() => {
+    const handleStorage = () => setVisibleCollections(loadVisibleCollections());
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(() => setVisibleCollections(loadVisibleCollections()), 1000);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
 
   const sortedDrops = useMemo(
     () => [...drops].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [drops]
   );
 
+  const filteredDrops = useMemo(() => {
+    let filtered = sortedDrops;
+    
+    if (selectedTag) {
+      filtered = filtered.filter(drop => drop.tags.includes(selectedTag));
+    }
+    
+    if (searchQuery.trim()) {
+      filtered = searchDrops(searchQuery);
+    }
+    
+    if (activeTab === 'favoritos') {
+      return filtered.filter(drop => drop.liked);
+    }
+    
+    if (visibleCollections.length > 0) {
+      filtered = filtered.filter(drop => 
+        drop.collectionId && visibleCollections.includes(drop.collectionId)
+      );
+    }
+    
+    if (showRefreshIndicator) {
+      filtered = filtered.filter(drop => drop.viewed !== true);
+    }
+    
+    return filtered;
+  }, [sortedDrops, activeTab, showRefreshIndicator, visibleCollections, searchQuery, searchDrops, selectedTag]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    currentPullDistance.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartY.current;
+    
+    if (diff > 0 && window.scrollY === 0) {
+      currentPullDistance.current = diff;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (currentPullDistance.current > 100) {
+      setIsRefreshing(true);
+      setShowRefreshIndicator(true);
+      
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setShowRefreshIndicator(false);
+      }, 1000);
+    }
+    currentPullDistance.current = 0;
+  }, []);
+
   return (
     <div className="flex flex-col bg-[#0a0a0a]">
       <header className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2f3336]">
+        {selectedTag && (
+          <div className="px-5 py-2 bg-[#7c3aed]/20 border-b border-[#7c3aed]/30 flex items-center justify-between">
+            <span className="text-[14px] text-[#a78bfa]">
+              Filtrando por: <strong>{selectedTag}</strong>
+            </span>
+            <button 
+              onClick={onClearTagFilter}
+              className="text-[14px] text-[#71767b] hover:text-[#e7e9ea]"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="p-4 px-5">
           <h1 className="text-[22px] font-extrabold text-[#e7e9ea]">Tu Feed de Aprendizaje</h1>
+          
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71767b]" />
+            <input
+              type="text"
+              placeholder="Buscar drops..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#181818] text-[#e7e9ea] placeholder-[#71767b] pl-10 pr-4 py-2.5 rounded-lg text-[15px] border border-[#2f3336] focus:outline-none focus:border-[#7c3aed] transition-colors"
+            />
+          </div>
         </div>
 
         <div className="px-5 flex gap-1 overflow-x-auto scrollbar-hide">
-          {['Para ti', 'Recientes', 'Repasar'].map((tab) => (
+          {['Para ti', 'Recientes', 'Favoritos'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
@@ -67,19 +187,40 @@ export function Feed() {
       )}
 
       {/* Lista de drops */}
-      <div className="flex-1">
-        {sortedDrops.length === 0 ? (
+      <div 
+        className="flex-1"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {isRefreshing && (
+          <div className="flex items-center justify-center gap-2 p-4 text-[#71767b]">
+            <div className="w-5 h-5 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+            <span>Buscando nuevos drops...</span>
+          </div>
+        )}
+        {filteredDrops.length === 0 ? (
           <div className="p-8 text-center text-[#71767b]">
-            <p>No hay drops todavía</p>
+            {searchQuery.trim() ? (
+              <p>No se encontraron drops para '{searchQuery}'</p>
+            ) : (
+              <p>No hay drops todavía</p>
+            )}
           </div>
         ) : (
-          sortedDrops.map((drop) => (
-            <DropCard 
-              key={drop.id} 
-              drop={drop}
-              onAI={() => setAiChatDrop(drop)}
-            />
-          ))
+          <div className="flex flex-col gap-3 p-4">
+            {filteredDrops.map((drop) => (
+              <DropCard 
+                key={drop.id} 
+                drop={drop}
+                onAI={() => setAiChatDrop(drop)}
+                onToggleLike={toggleLike}
+                onMarkViewed={markAsViewed}
+                onDelete={deleteDrop}
+                onEdit={(updatedDrop) => updateDrop(updatedDrop.id, updatedDrop)}
+              />
+            ))}
+          </div>
         )}
       </div>
 

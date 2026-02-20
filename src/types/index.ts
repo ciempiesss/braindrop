@@ -68,6 +68,8 @@ export interface Drop {
   nextReviewDate: string;
   lastReviewDate?: string;
   status: 'new' | 'learning' | 'review' | 'relearn';
+  liked?: boolean;
+  viewed?: boolean;
 }
 
 export interface Collection {

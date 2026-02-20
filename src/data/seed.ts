@@ -452,7 +452,7 @@ async function testLogin() {
   
   // Assert
   let url = await driver.getCurrentUrl();
-  console.log(url.includes('/dashboard'));
+  return url.includes('/dashboard');
 }`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

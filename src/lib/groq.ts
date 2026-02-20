@@ -40,7 +40,7 @@ Responde de forma conversacional, breve (2-3 párrafos máximo), y haz preguntas
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'moonshotai/kimi-k2-instruct-0905',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
@@ -56,8 +56,8 @@ Responde de forma conversacional, breve (2-3 párrafos máximo), y haz preguntas
 
     const data: GroqResponse = await response.json();
     return data.choices[0]?.message?.content || 'No pude generar una respuesta.';
-  } catch (error) {
-    console.error('Groq API error:', error);
+  } catch {
+    // Silent fail - fallback to simulateResponse
     return simulateResponse(context);
   }
 }

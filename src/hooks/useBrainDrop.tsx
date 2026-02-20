@@ -14,6 +14,8 @@ interface BrainDropContextType {
   reviewDrop: (id: string, quality: number) => void;
   searchDrops: (query: string) => Drop[];
   filterDrops: (type?: string, collectionId?: string, tag?: string) => Drop[];
+  toggleLike: (id: string) => void;
+  markAsViewed: (id: string) => void;
 }
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
@@ -43,7 +45,9 @@ function getItem<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
     if (stored) return JSON.parse(stored);
-  } catch { }
+  } catch {
+    // ignore parse errors
+  }
   return fallback;
 }
 
@@ -200,6 +204,22 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const toggleLike: BrainDropContextType['toggleLike'] = (id) => {
+    setDrops((prev) =>
+      prev.map((drop) =>
+        drop.id === id ? { ...drop, liked: !drop.liked } : drop
+      )
+    );
+  };
+
+  const markAsViewed: BrainDropContextType['markAsViewed'] = (id) => {
+    setDrops((prev) =>
+      prev.map((drop) =>
+        drop.id === id ? { ...drop, viewed: true } : drop
+      )
+    );
+  };
+
   return (
     <BrainDropContext.Provider
       value={{
@@ -213,6 +233,8 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
         reviewDrop,
         searchDrops,
         filterDrops,
+        toggleLike,
+        markAsViewed,
       }}
     >
       {children}

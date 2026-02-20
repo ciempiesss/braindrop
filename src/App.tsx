@@ -14,16 +14,22 @@ type Tab = 'feed' | 'explore' | 'progress' | 'quiz' | 'collections' | 'settings'
 function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { getDropsForReview } = useBrainDrop();
 
   const dropsForReview = getDropsForReview().length;
 
+  const handleTagClick = (tag: string) => {
+    setTagFilter(tag);
+    setActiveTab('feed');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'feed':
-        return <Feed />;
+        return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
       case 'explore':
-        return <Feed />;
+        return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
       case 'quiz':
         return <Quiz />;
       case 'collections':
@@ -54,7 +60,7 @@ function AppContent() {
           <main className="flex-1 min-w-0 overflow-y-auto">
             {renderContent()}
           </main>
-          <RightSidebar onStartQuiz={() => setActiveTab('quiz')} />
+          <RightSidebar onStartQuiz={() => setActiveTab('quiz')} onTagClick={handleTagClick} />
         </div>
       </div>
 

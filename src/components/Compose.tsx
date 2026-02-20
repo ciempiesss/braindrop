@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { DropType } from '@/types';
 import { DROP_TYPE_CONFIG } from '@/types';
@@ -8,6 +8,16 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 5000;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 30;
+const MINIMIZED_KEY = 'braindrop_compose_minimized';
+
+function loadMinimizedState(): boolean {
+  try {
+    const stored = localStorage.getItem(MINIMIZED_KEY);
+    return stored === 'true';
+  } catch {
+    return false;
+  }
+}
 
 interface ComposeProps {
   onSubmit: (drop: {
@@ -23,7 +33,18 @@ interface ComposeProps {
 const DROP_TYPES: DropType[] = ['definition', 'analogy', 'hook', 'trivia', 'insight', 'connection', 'code'];
 
 export function Compose({ onSubmit }: ComposeProps) {
+  const [isMinimized, setIsMinimized] = useState(loadMinimizedState);
   const [title, setTitle] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MINIMIZED_KEY, String(isMinimized));
+    } catch {
+      // ignore storage errors
+    }
+  }, [isMinimized]);
+
+  const handleToggleMinimize = () => setIsMinimized(!isMinimized);
   const [content, setContent] = useState('');
   const [type, setType] = useState<DropType>('definition');
   const [tags, setTags] = useState('');
@@ -64,27 +85,59 @@ export function Compose({ onSubmit }: ComposeProps) {
     setShowVisual(false);
   };
 
+  if (isMinimized) {
+    return (
+      <div 
+        onClick={handleToggleMinimize}
+        className="p-4 border-b border-[#2f3336] bg-[#16181c] cursor-pointer hover:bg-[#1c1f23] transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-[#a0a0a0] font-medium">Crear drop +</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleMinimize();
+            }}
+            className="text-[#71767b] hover:text-white transition-colors"
+          >
+            ▲
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="p-5 border-b border-[#2f3336]">
-      <div className="flex flex-wrap gap-2 mb-4">
-        {DROP_TYPES.map((t) => {
-          const config = DROP_TYPE_CONFIG[t];
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={cn(
-                'px-3.5 py-2 rounded-full text-[13px] transition-all border',
-                type === t
-                  ? 'bg-[#7c3aed] border-[#7c3aed] text-white'
-                  : 'bg-transparent border-[#2f3336] text-[#a0a0a0] hover:border-[#7c3aed] hover:text-[#7c3aed]'
-              )}
-            >
-              {config.emoji} {config.label}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap gap-2">
+          {DROP_TYPES.map((t) => {
+            const config = DROP_TYPE_CONFIG[t];
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                className={cn(
+                  'px-3.5 py-2 rounded-full text-[13px] transition-all border',
+                  type === t
+                    ? 'bg-[#7c3aed] border-[#7c3aed] text-white'
+                    : 'bg-transparent border-[#2f3336] text-[#a0a0a0] hover:border-[#7c3aed] hover:text-[#7c3aed]'
+                )}
+              >
+                {config.emoji} {config.label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleMinimize}
+          className="text-[#71767b] hover:text-white transition-colors text-lg ml-2"
+        >
+          ▼
+        </button>
       </div>
 
       <input
