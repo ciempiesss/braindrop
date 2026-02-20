@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Type, RotateCcw, Folder, Eye, EyeOff } from 'lucide-react';
+import { Type, RotateCcw, Folder, Eye, EyeOff, Brain } from 'lucide-react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 
 export type FontSize = 'sm' | 'md' | 'lg' | 'xl';
+export type QuizMode = 'ia' | 'pregenerated';
+export type QuizCount = 5 | 10 | 20;
 
 interface Settings {
   fontSize: FontSize;
   visibleCollections: string[];
+  quizMode: QuizMode;
+  quizCount: QuizCount;
 }
 
 const STORAGE_KEY = 'braindrop_settings';
@@ -26,6 +30,12 @@ const FONT_SIZE_MAP: Record<FontSize, string> = {
   xl: '24px',
 };
 
+const QUIZ_COUNT_OPTIONS: { value: QuizCount; label: string }[] = [
+  { value: 5, label: '5 preguntas' },
+  { value: 10, label: '10 preguntas' },
+  { value: 20, label: '20 preguntas' },
+];
+
 function loadSettings(): Settings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -33,13 +43,15 @@ function loadSettings(): Settings {
       const parsed = JSON.parse(stored);
       return {
         fontSize: parsed.fontSize || 'md',
-        visibleCollections: parsed.visibleCollections || []
+        visibleCollections: parsed.visibleCollections || [],
+        quizMode: parsed.quizMode || 'pregenerated',
+        quizCount: parsed.quizCount || 10,
       };
     }
   } catch {
     console.warn('Error loading settings');
   }
-  return { fontSize: 'md', visibleCollections: [] };
+  return { fontSize: 'md', visibleCollections: [], quizMode: 'pregenerated', quizCount: 10 };
 }
 
 function applyFontSize(fontSize: FontSize) {
@@ -57,6 +69,14 @@ export function Settings() {
 
   const handleFontSizeChange = (fontSize: FontSize) => {
     setSettings((prev) => ({ ...prev, fontSize }));
+  };
+
+  const handleQuizModeChange = (quizMode: QuizMode) => {
+    setSettings((prev) => ({ ...prev, quizMode }));
+  };
+
+  const handleQuizCountChange = (quizCount: QuizCount) => {
+    setSettings((prev) => ({ ...prev, quizCount }));
   };
 
   const toggleCollectionVisibility = (collectionId: string) => {
@@ -81,7 +101,7 @@ export function Settings() {
   };
 
   const resetSettings = () => {
-    const defaultSettings: Settings = { fontSize: 'md', visibleCollections: [] };
+    const defaultSettings: Settings = { fontSize: 'md', visibleCollections: [], quizMode: 'pregenerated', quizCount: 10 };
     setSettings(defaultSettings);
     applyFontSize(defaultSettings.fontSize);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
@@ -165,6 +185,63 @@ export function Settings() {
                 )}
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+          <div className="flex items-center gap-3 mb-4">
+            <Brain className="w-5 h-5 text-[#7c3aed]" />
+            <h2 className="text-lg font-semibold">Quiz</h2>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-[#71767b] mb-2 block">Modo de generación</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleQuizModeChange('ia')}
+                  className={cn(
+                    'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                    settings.quizMode === 'ia'
+                      ? 'bg-[#7c3aed] text-white'
+                      : 'bg-[#181818] text-[#71767b] hover:text-[#e7e9ea]'
+                  )}
+                >
+                  🤖 IA
+                </button>
+                <button
+                  onClick={() => handleQuizModeChange('pregenerated')}
+                  className={cn(
+                    'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                    settings.quizMode === 'pregenerated'
+                      ? 'bg-[#7c3aed] text-white'
+                      : 'bg-[#181818] text-[#71767b] hover:text-[#e7e9ea]'
+                  )}
+                >
+                  📝 Pre-generado
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm text-[#71767b] mb-2 block">Preguntas por sesión</label>
+              <div className="flex gap-2">
+                {QUIZ_COUNT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleQuizCountChange(option.value)}
+                    className={cn(
+                      'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors',
+                      settings.quizCount === option.value
+                        ? 'bg-[#7c3aed] text-white'
+                        : 'bg-[#181818] text-[#71767b] hover:text-[#e7e9ea]'
+                    )}
+                  >
+                    {option.value}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
