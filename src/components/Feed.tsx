@@ -3,7 +3,6 @@ import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
 import { Compose } from '@/components/Compose';
 import { AIChat } from '@/components/AIChat';
-import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Drop } from '@/types';
 
@@ -31,14 +30,13 @@ export function Feed({
   selectedTag?: string | null; 
   onClearTagFilter?: () => void;
 }) {
-  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop, searchDrops } = useBrainDrop();
+  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop } = useBrainDrop();
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshIndicator, setShowRefreshIndicator] = useState(false);
   const [visibleCollections, setVisibleCollections] = useState<string[]>(defaultVisibleCollections);
-  const [searchQuery, setSearchQuery] = useState('');
   
   const touchStartY = useRef(0);
   const currentPullDistance = useRef(0);
@@ -65,8 +63,53 @@ export function Feed({
       filtered = filtered.filter(drop => drop.tags.includes(selectedTag));
     }
     
-    if (searchQuery.trim()) {
-      filtered = searchDrops(searchQuery);
+    // Algoritmo Mezcla inteligente para "Para Ti"
+    if (activeTab === 'para-ti') {
+      const now = new Date();
+      
+      // Bucket A: No vistos (nuevos)
+      const nuevos = filtered.filter(d => d.viewed !== true);
+      
+      // Bucket B: Por repasar (SM-2 dice que hay que revisar)
+      const porRepasar = filtered.filter(d => 
+        d.viewed === true && new Date(d.nextReviewDate) <= now
+      );
+      
+      // Bucket C: Vistos recientemente (para variedad)
+      const recientes = filtered.filter(d => 
+        d.viewed === true && new Date(d.nextReviewDate) > now
+      ).slice(0, Math.floor(filtered.length * 0.2));
+      
+      // Mezcla: 40% nuevos + 35% por repasar + 25% recientes
+      const maxNuevos = Math.floor(20 * 0.4);
+      const maxPorRepasar = Math.floor(20 * 0.35);
+      const maxRecientes = Math.floor(20 * 0.25);
+      
+      const resultado = [
+        ...nuevos.slice(0, maxNuevos),
+        ...porRepasar.slice(0, maxPorRepasar),
+        ...recientes.slice(0, maxRecientes)
+      ];
+      
+      // DIVERSIDAD: no más de 3 del mismo tipo consecutively
+      const diversificado: Drop[] = [];
+      let lastType = '';
+      let sameTypeCount = 0;
+      
+      for (const drop of resultado) {
+        if (drop.type === lastType && sameTypeCount >= 3) {
+          continue;
+        }
+        diversificado.push(drop);
+        if (drop.type === lastType) {
+          sameTypeCount++;
+        } else {
+          lastType = drop.type;
+          sameTypeCount = 1;
+        }
+      }
+      
+      return diversificado;
     }
     
     if (activeTab === 'favoritos') {
@@ -80,11 +123,17 @@ export function Feed({
     }
     
     if (showRefreshIndicator) {
-      filtered = filtered.filter(drop => drop.viewed !== true);
+      // Pull-to-refresh "Ambos": no vistos + por repasar
+      const now = new Date();
+      const noVistos = filtered.filter(d => d.viewed !== true);
+      const porRepasar = filtered.filter(d => 
+        d.viewed === true && new Date(d.nextReviewDate) <= now
+      );
+      return [...noVistos, ...porRepasar].slice(0, 20);
     }
     
     return filtered;
-  }, [sortedDrops, activeTab, showRefreshIndicator, visibleCollections, searchQuery, searchDrops, selectedTag]);
+  }, [sortedDrops, activeTab, showRefreshIndicator, visibleCollections, selectedTag]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -131,17 +180,6 @@ export function Feed({
         )}
         <div className="p-4 px-5">
           <h1 className="text-[22px] font-extrabold text-[#e7e9ea]">Tu Feed de Aprendizaje</h1>
-          
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71767b]" />
-            <input
-              type="text"
-              placeholder="Buscar drops..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#181818] text-[#e7e9ea] placeholder-[#71767b] pl-10 pr-4 py-2.5 rounded-lg text-[15px] border border-[#2f3336] focus:outline-none focus:border-[#7c3aed] transition-colors"
-            />
-          </div>
         </div>
 
         <div className="px-5 flex gap-1 overflow-x-auto scrollbar-hide">
@@ -201,11 +239,7 @@ export function Feed({
         )}
         {filteredDrops.length === 0 ? (
           <div className="p-8 text-center text-[#71767b]">
-            {searchQuery.trim() ? (
-              <p>No se encontraron drops para '{searchQuery}'</p>
-            ) : (
-              <p>No hay drops todavía</p>
-            )}
+            <p>No hay drops todavía</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 p-4">

@@ -10,7 +10,6 @@ import { useBrainDrop } from '@/hooks/useBrainDrop';
 
 interface DropCardProps {
   drop: Drop;
-  onReview?: () => void;
   onAI?: () => void;
   onToggleLike?: (id: string) => void;
   onMarkViewed?: (id: string) => void;
@@ -195,7 +194,7 @@ const ComparisonVisual = ({ data }: { data: VisualData }) => {
 
 // ============= MAIN CARD =============
 
-export function DropCard({ drop, onReview, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
+export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const { toggleLike: contextToggleLike } = useBrainDrop();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -330,23 +329,6 @@ export function DropCard({ drop, onReview, onAI, onToggleLike, onMarkViewed, onD
         >
           <span className="text-sm">✏️</span>
           <span>Editar</span>
-        </button>
-        <button 
-          onClick={() => {
-            navigator.clipboard.writeText(`${drop.title}\n\n${drop.content}`);
-            alert('Copiado al portapapeles');
-          }}
-          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
-        >
-          <span className="text-sm">📤</span>
-          <span>Compartir</span>
-        </button>
-        <button 
-          onClick={onReview}
-          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
-        >
-          <span className="text-sm">🔄</span>
-          <span>Repetir</span>
         </button>
         <button 
           onClick={() => handleToggleLike(drop.id)}
