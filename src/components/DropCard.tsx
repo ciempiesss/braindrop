@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useViewedObserver } from '@/hooks/useViewedObserver';
 import { cn } from '@/lib/utils';
 import type { Drop, VisualData } from '@/types';
 import { DROP_TYPE_CONFIG } from '@/types';
@@ -211,11 +212,11 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
   const handleToggleLike = onToggleLike || contextToggleLike;
 
-  useEffect(() => {
-    if (onMarkViewed && !drop.viewed) {
-      onMarkViewed(drop.id);
-    }
-  }, [drop.id, drop.viewed, onMarkViewed]);
+  const cardRef = useRef<HTMLElement>(null);
+  const handleViewed = useCallback(() => {
+    if (onMarkViewed) onMarkViewed(drop.id);
+  }, [drop.id, onMarkViewed]);
+  useViewedObserver(cardRef, handleViewed, { skip: drop.viewed === true });
 
   useEffect(() => {
     const handleStorage = () => setFontScale(getFontScale());
@@ -253,7 +254,8 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   };
 
   return (
-    <article 
+    <article
+      ref={cardRef}
       className="p-4 border-b border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer w-full"
       style={{ 
         background: 'linear-gradient(145deg, #0f0f14 0%, #0a0a0f 100%)',

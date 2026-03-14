@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import type { Drop, Collection } from '@/types';
 import { SAMPLE_DROPS, SAMPLE_COLLECTIONS } from '@/data/seed';
 import { generateId } from '@/lib/utils';
@@ -213,13 +213,13 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const markAsViewed: BrainDropContextType['markAsViewed'] = (id) => {
+  const markAsViewed: BrainDropContextType['markAsViewed'] = useCallback((id) => {
     setDrops((prev) =>
       prev.map((drop) =>
         drop.id === id ? { ...drop, viewed: true } : drop
       )
     );
-  };
+  }, []);
 
   return (
     <BrainDropContext.Provider

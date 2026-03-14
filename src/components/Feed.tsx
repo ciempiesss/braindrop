@@ -5,6 +5,13 @@ import { Compose } from '@/components/Compose';
 import { AIChat } from '@/components/AIChat';
 import { cn } from '@/lib/utils';
 import type { Drop } from '@/types';
+import {
+  buildSessionPool,
+  getSessionStats,
+  SESSION_SIZE,
+  PAGE_SIZE,
+  MAX_SESSION,
+} from '@/lib/feedAlgorithm';
 
 const SETTINGS_KEY = 'braindrop_settings';
 
@@ -16,31 +23,39 @@ function loadVisibleCollections(): string[] {
       return settings.visibleCollections || [];
     }
   } catch {
-    // ignore storage errors
+    // ignore
   }
   return [];
 }
 
 const defaultVisibleCollections = typeof window !== 'undefined' ? loadVisibleCollections() : [];
 
-export function Feed({ 
-  selectedTag, 
-  onClearTagFilter 
-}: { 
-  selectedTag?: string | null; 
+export function Feed({
+  selectedTag,
+  onClearTagFilter,
+}: {
+  selectedTag?: string | null;
   onClearTagFilter?: () => void;
 }) {
   const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop } = useBrainDrop();
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showRefreshIndicator, setShowRefreshIndicator] = useState(false);
   const [visibleCollections, setVisibleCollections] = useState<string[]>(defaultVisibleCollections);
-  
+
+  // ── Sesión ────────────────────────────────────────────────────────────────
+  const [sessionSeed, setSessionSeed] = useState<number>(() => Date.now());
+  const [sessionPage, setSessionPage] = useState<number>(1);
+  const [sessionPool, setSessionPool] = useState<Drop[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [refreshToast, setRefreshToast] = useState<string | null>(null);
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const touchStartY = useRef(0);
   const currentPullDistance = useRef(0);
-  
+  const [isPulling, setIsPulling] = useState(false);
+
+  // ── Sincronizar visibleCollections con settings ───────────────────────────
   useEffect(() => {
     const handleStorage = () => setVisibleCollections(loadVisibleCollections());
     window.addEventListener('storage', handleStorage);
@@ -51,126 +66,112 @@ export function Feed({
     };
   }, []);
 
-  const sortedDrops = useMemo(
-    () => [...drops].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [drops]
-  );
+  // ── Reconstruir pool cuando cambia la semilla o los drops ─────────────────
+  useEffect(() => {
+    if (activeTab !== 'para-ti') return;
+    const pool = buildSessionPool(drops, sessionSeed, selectedTag, visibleCollections);
+    setSessionPool(pool);
+    setSessionPage(1);
+  }, [sessionSeed, drops, selectedTag, visibleCollections, activeTab]);
 
-  const filteredDrops = useMemo(() => {
-    let filtered = sortedDrops;
-    
+  // ── Drops visibles calculados ─────────────────────────────────────────────
+  const visibleCount = SESSION_SIZE + Math.max(0, sessionPage - 1) * PAGE_SIZE;
+
+  const baseFilteredDrops = useMemo(() => {
+    let filtered = [...drops];
     if (selectedTag) {
-      filtered = filtered.filter(drop => drop.tags.includes(selectedTag));
+      filtered = filtered.filter(d => d.tags.includes(selectedTag));
     }
-    
-    // Algoritmo Mezcla inteligente para "Para Ti"
-    if (activeTab === 'para-ti') {
-      const now = new Date();
-      
-      // Bucket A: No vistos (nuevos)
-      const nuevos = filtered.filter(d => d.viewed !== true);
-      
-      // Bucket B: Por repasar (SM-2 dice que hay que revisar)
-      const porRepasar = filtered.filter(d => 
-        d.viewed === true && new Date(d.nextReviewDate) <= now
-      );
-      
-      // Bucket C: Vistos recientemente (para variedad)
-      const recientes = filtered.filter(d => 
-        d.viewed === true && new Date(d.nextReviewDate) > now
-      ).slice(0, Math.floor(filtered.length * 0.2));
-      
-      // Mezcla: 40% nuevos + 35% por repasar + 25% recientes
-      const maxNuevos = Math.floor(20 * 0.4);
-      const maxPorRepasar = Math.floor(20 * 0.35);
-      const maxRecientes = Math.floor(20 * 0.25);
-      
-      const resultado = [
-        ...nuevos.slice(0, maxNuevos),
-        ...porRepasar.slice(0, maxPorRepasar),
-        ...recientes.slice(0, maxRecientes)
-      ];
-      
-      // DIVERSIDAD: no más de 3 del mismo tipo consecutively
-      const diversificado: Drop[] = [];
-      let lastType = '';
-      let sameTypeCount = 0;
-      
-      for (const drop of resultado) {
-        if (drop.type === lastType && sameTypeCount >= 3) {
-          continue;
-        }
-        diversificado.push(drop);
-        if (drop.type === lastType) {
-          sameTypeCount++;
-        } else {
-          lastType = drop.type;
-          sameTypeCount = 1;
-        }
-      }
-      
-      return diversificado;
-    }
-    
     if (activeTab === 'favoritos') {
-      return filtered.filter(drop => drop.liked);
+      return filtered
+        .filter(d => d.liked)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
-    
+    // recientes
     if (visibleCollections.length > 0) {
-      filtered = filtered.filter(drop => 
-        drop.collectionId && visibleCollections.includes(drop.collectionId)
-      );
+      filtered = filtered.filter(d => d.collectionId && visibleCollections.includes(d.collectionId));
     }
-    
-    if (showRefreshIndicator) {
-      // Pull-to-refresh "Ambos": no vistos + por repasar
-      const now = new Date();
-      const noVistos = filtered.filter(d => d.viewed !== true);
-      const porRepasar = filtered.filter(d => 
-        d.viewed === true && new Date(d.nextReviewDate) <= now
-      );
-      return [...noVistos, ...porRepasar].slice(0, 20);
-    }
-    
-    return filtered;
-  }, [sortedDrops, activeTab, showRefreshIndicator, visibleCollections, selectedTag]);
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [drops, activeTab, selectedTag, visibleCollections]);
 
+  const displayedDrops = useMemo(() => {
+    if (activeTab === 'para-ti') return sessionPool.slice(0, visibleCount);
+    return baseFilteredDrops;
+  }, [activeTab, sessionPool, visibleCount, baseFilteredDrops]);
+
+  // ── Stats de sesión ───────────────────────────────────────────────────────
+  const sessionStats = useMemo(() => {
+    if (activeTab !== 'para-ti') return null;
+    return getSessionStats(drops);
+  }, [drops, activeTab]);
+
+  const hasMoreInSession = sessionPool.length > visibleCount;
+  const canLoadMore = sessionPage < Math.ceil(MAX_SESSION / PAGE_SIZE) && hasMoreInSession;
+  const isSessionExhausted = activeTab === 'para-ti' && displayedDrops.length > 0 && !hasMoreInSession;
+
+  // ── Handlers de sesión ────────────────────────────────────────────────────
+  const handleLoadMore = useCallback(() => {
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setSessionPage(prev => prev + 1);
+      setIsLoadingMore(false);
+    }, 300);
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    setSessionSeed(Date.now());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
     currentPullDistance.current = 0;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const currentY = e.touches[0].clientY;
-    const diff = currentY - touchStartY.current;
-    
+    const diff = e.touches[0].clientY - touchStartY.current;
     if (diff > 0 && window.scrollY === 0) {
       currentPullDistance.current = diff;
+      if (diff > 60) setIsPulling(true);
     }
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (currentPullDistance.current > 100) {
-      setIsRefreshing(true);
-      setShowRefreshIndicator(true);
-      
-      setTimeout(() => {
-        setIsRefreshing(false);
-        setShowRefreshIndicator(false);
-      }, 1000);
+    setIsPulling(false);
+    if (currentPullDistance.current > 100 && activeTab === 'para-ti') {
+      const now = new Date();
+      const stats = getSessionStats(drops);
+      const message =
+        stats.unseen > 0
+          ? `${stats.unseen} drops nuevos`
+          : stats.dueForReview > 0
+          ? `${stats.dueForReview} por repasar hoy`
+          : 'Feed actualizado';
+
+      setRefreshToast(message);
+      setSessionSeed(Date.now());
+      setTimeout(() => setRefreshToast(null), 3000);
     }
     currentPullDistance.current = 0;
-  }, []);
+  }, [drops, activeTab]);
 
   return (
     <div className="flex flex-col bg-[#0a0a0a]">
+      {/* Toast de refresh */}
+      {refreshToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-[#7c3aed] text-white text-sm rounded-full shadow-lg">
+          {refreshToast}
+        </div>
+      )}
+
       <header className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2f3336]">
         {selectedTag && (
           <div className="px-5 py-2 bg-[#7c3aed]/20 border-b border-[#7c3aed]/30 flex items-center justify-between">
             <span className="text-[14px] text-[#a78bfa]">
               Filtrando por: <strong>{selectedTag}</strong>
             </span>
-            <button 
+            <button
               onClick={onClearTagFilter}
               className="text-[14px] text-[#71767b] hover:text-[#e7e9ea]"
             >
@@ -200,7 +201,7 @@ export function Feed({
         </div>
       </header>
 
-      {/* Compose - Solo desktop */}
+      {/* Compose — solo desktop */}
       <div className="hidden lg:block">
         <Compose onSubmit={addDrop} />
       </div>
@@ -210,42 +211,43 @@ export function Feed({
         <div className="lg:hidden fixed inset-0 z-50 bg-[#0a0a0a]">
           <div className="flex items-center justify-between p-4 border-b border-[#2f3336]">
             <h2 className="font-bold text-[#e7e9ea]">Nuevo Drop</h2>
-            <button 
-              onClick={() => setShowCompose(false)}
-              className="text-[#71767b] text-xl"
-            >
+            <button onClick={() => setShowCompose(false)} className="text-[#71767b] text-xl">
               ✕
             </button>
           </div>
-          <Compose onSubmit={(drop) => {
-            addDrop(drop);
-            setShowCompose(false);
-          }} />
+          <Compose
+            onSubmit={(drop) => {
+              addDrop(drop);
+              setShowCompose(false);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Indicador de pull */}
+      {isPulling && (
+        <div className="flex items-center justify-center gap-2 py-3 text-[#71767b] text-sm">
+          <div className="w-4 h-4 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+          <span>Suelta para actualizar</span>
         </div>
       )}
 
       {/* Lista de drops */}
-      <div 
+      <div
         className="flex-1"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {isRefreshing && (
-          <div className="flex items-center justify-center gap-2 p-4 text-[#71767b]">
-            <div className="w-5 h-5 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
-            <span>Buscando nuevos drops...</span>
-          </div>
-        )}
-        {filteredDrops.length === 0 ? (
+        {displayedDrops.length === 0 ? (
           <div className="p-8 text-center text-[#71767b]">
             <p>No hay drops todavía</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 p-4">
-            {filteredDrops.map((drop) => (
-              <DropCard 
-                key={drop.id} 
+            {displayedDrops.map((drop) => (
+              <DropCard
+                key={drop.id}
                 drop={drop}
                 onAI={() => setAiChatDrop(drop)}
                 onToggleLike={toggleLike}
@@ -254,6 +256,48 @@ export function Feed({
                 onEdit={(updatedDrop) => updateDrop(updatedDrop.id, updatedDrop)}
               />
             ))}
+          </div>
+        )}
+
+        {/* Fin de sesión — solo en "Para Ti" */}
+        {activeTab === 'para-ti' && displayedDrops.length > 0 && (
+          <div className="flex flex-col items-center gap-3 px-8 py-10 border-t border-[#2f3336]">
+            {sessionStats && (
+              <p className="text-[#71767b] text-sm text-center">
+                {sessionStats.unseen > 0 && sessionStats.dueForReview > 0
+                  ? `${sessionStats.unseen} nuevos · ${sessionStats.dueForReview} por repasar`
+                  : sessionStats.unseen > 0
+                  ? `${sessionStats.unseen} drops nuevos pendientes`
+                  : sessionStats.dueForReview > 0
+                  ? `${sessionStats.dueForReview} por repasar hoy`
+                  : 'Al día con todo 🎯'}
+              </p>
+            )}
+
+            {isLoadingMore && (
+              <div className="flex items-center gap-2 text-[#71767b]">
+                <div className="w-4 h-4 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm">Cargando...</span>
+              </div>
+            )}
+
+            {!isLoadingMore && canLoadMore && (
+              <button
+                onClick={handleLoadMore}
+                className="px-6 py-2.5 rounded-full bg-[#7c3aed]/20 border border-[#7c3aed]/40 text-[#a78bfa] text-sm font-semibold hover:bg-[#7c3aed]/30 transition-colors"
+              >
+                Cargar más →
+              </button>
+            )}
+
+            {!isLoadingMore && isSessionExhausted && (
+              <button
+                onClick={handleNewSession}
+                className="px-6 py-2.5 rounded-full bg-[#7c3aed] text-white text-sm font-semibold hover:bg-[#6d28d9] transition-colors"
+              >
+                Nueva sesión ↺
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -268,7 +312,7 @@ export function Feed({
 
       {/* AI Chat */}
       {aiChatDrop && (
-        <AIChat 
+        <AIChat
           dropTitle={aiChatDrop.title}
           dropContent={aiChatDrop.content}
           dropType={aiChatDrop.type}
