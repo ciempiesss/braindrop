@@ -2,8 +2,17 @@ import { useState, useEffect } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { Target, ChevronRight, Check, X, RotateCcw, MessageCircle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateSmartQuizQuestion, generateQuizQuestion, type QuizQuestion } from '@/lib/groq';
+import { generateSmartQuizQuestion, generateQuizQuestion, chatWithGroq, type QuizQuestion } from '@/lib/groq';
 import type { Drop } from '@/types';
+
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 type QuizMode = 'flashcard' | 'multiple-choice';
 
@@ -38,7 +47,11 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const [quizDrops, setQuizDrops] = useState<Drop[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
@@ -47,47 +60,55 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
   const useIAMode = settings.quizMode === 'ia';
 
   useEffect(() => {
-    const allDrops = [...drops].sort(() => Math.random() - 0.5).slice(0, quizCount);
+    const allDrops = shuffleArray(drops).slice(0, quizCount);
     setQuizDrops(allDrops);
   }, [drops, quizCount]);
 
   useEffect(() => {
     if (quizDrops.length === 0) return;
-    
+
+    const generateQuestionsWithIA = async () => {
+      setIsGenerating(true);
+      setGenerationProgress(0);
+      const questions: QuizQuestion[] = [];
+      const BATCH_SIZE = 3;
+
+      for (let i = 0; i < quizDrops.length; i += BATCH_SIZE) {
+        const batch = quizDrops.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(drop => generateSmartQuizQuestion(drop)));
+        questions.push(...batchResults);
+        setGenerationProgress(Math.min(i + BATCH_SIZE, quizDrops.length));
+        
+        if (i + BATCH_SIZE < quizDrops.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      setQuizQuestions(questions);
+      setCurrentQuestion(questions[0] || null);
+      setIsGenerating(false);
+    };
+
+    const generateQuestionsPreGenerated = () => {
+      const questions: QuizQuestion[] = quizDrops.map((drop) => {
+        const basic = generateQuizQuestion(drop);
+        return {
+          ...basic,
+          explanation: drop.content.substring(0, 200),
+          example: 'Aplicación práctica del concepto en tu trabajo.',
+          dropId: drop.id,
+        };
+      });
+      setQuizQuestions(questions);
+      setCurrentQuestion(questions[0] || null);
+    };
+
     if (useIAMode) {
       generateQuestionsWithIA();
     } else {
       generateQuestionsPreGenerated();
     }
-  }, [quizDrops]);
-
-  const generateQuestionsWithIA = async () => {
-    setIsGenerating(true);
-    const questions: QuizQuestion[] = [];
-    
-    for (const drop of quizDrops) {
-      const q = await generateSmartQuizQuestion(drop);
-      questions.push(q);
-    }
-    
-    setQuizQuestions(questions);
-    setCurrentQuestion(questions[0] || null);
-    setIsGenerating(false);
-  };
-
-  const generateQuestionsPreGenerated = () => {
-    const questions: QuizQuestion[] = quizDrops.map((drop) => {
-      const basic = generateQuizQuestion(drop);
-      return {
-        ...basic,
-        explanation: drop.content.substring(0, 200),
-        example: 'Aplicación práctica del concepto en tu trabajo.',
-        dropId: drop.id,
-      };
-    });
-    setQuizQuestions(questions);
-    setCurrentQuestion(questions[0] || null);
-  };
+  }, [quizDrops, useIAMode]);
 
   const currentDrop = quizDrops[currentIndex];
 
@@ -135,9 +156,66 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
     setSelectedOption(null);
     setShowExplanation(false);
     setShowChat(false);
+    setChatMessages([]);
+    setChatInput('');
     
-    const shuffledDrops = [...drops].sort(() => Math.random() - 0.5).slice(0, quizCount);
+    const shuffledDrops = shuffleArray(drops).slice(0, quizCount);
     setQuizDrops(shuffledDrops);
+  };
+
+  const initChat = () => {
+    if (!currentDrop) return;
+    const initialMessage: { role: 'user' | 'assistant'; content: string } = {
+      role: 'assistant',
+      content: `Hola. Puedo ayudarte a entender mejor "${currentDrop.title}". ¿Qué te gustaría saber?`,
+    };
+    setChatMessages([initialMessage]);
+    setShowChat(true);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !currentDrop || isChatLoading) return;
+
+    const userMessage: { role: 'user' | 'assistant'; content: string } = {
+      role: 'user',
+      content: chatInput.trim(),
+    };
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput('');
+    setIsChatLoading(true);
+
+    try {
+      const context = {
+        title: currentDrop.title,
+        content: currentDrop.content,
+        type: currentDrop.type,
+      };
+
+      const messagesForApi = chatMessages
+        .filter((m) => m.role !== 'assistant' || m !== chatMessages[0])
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      messagesForApi.push(userMessage);
+
+      const response = await chatWithGroq(messagesForApi, context);
+
+      const assistantMessage: { role: 'user' | 'assistant'; content: string } = {
+        role: 'assistant',
+        content: response,
+      };
+
+      setChatMessages((prev) => [...prev, assistantMessage]);
+    } catch {
+      const errorMessage: { role: 'user' | 'assistant'; content: string } = {
+        role: 'assistant',
+        content: 'Lo siento, tuve un problema al procesar tu mensaje. Intenta de nuevo.',
+      };
+      setChatMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   if (isGenerating) {
@@ -148,7 +226,20 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
             <Sparkles className="w-10 h-10 text-[#7c3aed] animate-pulse" />
           </div>
           <h2 className="text-xl font-bold text-[#e7e9ea] mb-2">Generando Quiz con IA</h2>
-          <p className="text-[#71767b]">Creando preguntas personalizadas...</p>
+          <p className="text-[#71767b] mb-4">Creando preguntas personalizadas...</p>
+          {generationProgress > 0 && (
+            <>
+              <p className="text-sm text-[#7c3aed] mb-2">
+                Generando pregunta {generationProgress} de {quizDrops.length}...
+              </p>
+              <div className="w-48 mx-auto bg-[#181818] rounded-full h-2">
+                <div
+                  className="bg-[#7c3aed] h-2 rounded-full transition-all"
+                  style={{ width: `${(generationProgress / quizDrops.length) * 100}%` }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -288,7 +379,7 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
                 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setShowChat(true)}
+                    onClick={initChat}
                     className="flex-1 py-3 rounded-xl bg-[#7c3aed]/10 text-[#7c3aed] font-semibold flex items-center justify-center gap-2 hover:bg-[#7c3aed]/20 transition-colors"
                   >
                     <MessageCircle className="w-5 h-5" />
@@ -361,7 +452,7 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
                   </div>
 
                   <button
-                    onClick={() => setShowChat(true)}
+                    onClick={initChat}
                     className="w-full py-3 rounded-xl bg-[#7c3aed]/10 text-[#7c3aed] font-semibold flex items-center justify-center gap-2 hover:bg-[#7c3aed]/20 transition-colors"
                   >
                     <MessageCircle className="w-5 h-5" />
@@ -392,13 +483,43 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
                 ✕
               </button>
             </div>
-            <div className="flex-1 p-4 overflow-auto text-[#e7e9ea] text-sm">
+            <div className="flex-1 p-4 overflow-auto text-[#e7e9ea] text-sm space-y-3">
               <p className="text-[#71767b] mb-4">
                 Puedes preguntar sobre: <strong>{currentDrop.title}</strong>
               </p>
-              <p className="text-[#71767b] text-center mt-8">
-                Configura tu API key de Groq para usar el chat con IA.
-              </p>
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
+                  <div className={`inline-block max-w-[80%] p-3 rounded-xl ${msg.role === 'user' ? 'bg-[#7c3aed] text-white' : 'bg-[#181818] text-[#e7e9ea]'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {isChatLoading && (
+                <div className="text-left">
+                  <div className="inline-block p-3 rounded-xl bg-[#181818] text-[#71767b]">
+                    Escribiendo...
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-[#2f3336]">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                  placeholder="Escribe tu pregunta..."
+                  className="flex-1 bg-[#181818] border border-[#2f3336] rounded-lg px-4 py-2 text-[#e7e9ea] placeholder-[#71767b] focus:outline-none focus:border-[#7c3aed]"
+                />
+                <button
+                  onClick={sendChatMessage}
+                  disabled={isChatLoading || !chatInput.trim()}
+                  className="px-4 py-2 bg-[#7c3aed] text-white rounded-lg hover:bg-[#7c3aed]/90 disabled:opacity-50"
+                >
+                  Enviar
+                </button>
+              </div>
             </div>
           </div>
         </div>

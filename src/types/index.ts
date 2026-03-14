@@ -1,10 +1,8 @@
-export type DropType = 
+export type DropType =
   | 'definition'
-  | 'analogy'
-  | 'hook'
-  | 'trivia'
-  | 'insight'
-  | 'connection'
+  | 'ruptura'
+  | 'puente'
+  | 'operativo'
   | 'code';
 
 export type VisualType = 'flow' | 'matrix' | 'code' | 'funnel' | 'pyramid' | 'list' | 'comparison';
@@ -61,7 +59,7 @@ export interface Drop {
   visualData?: VisualData;
   createdAt: string;
   updatedAt: string;
-  
+
   interval: number;
   repetitionCount: number;
   easeFactor: number;
@@ -92,11 +90,9 @@ export interface QuizSession {
 }
 
 export const DROP_TYPE_CONFIG: Record<DropType, { label: string; emoji: string; color: string; bgColor: string }> = {
-  definition: { label: 'Definición', emoji: '📌', color: 'text-type-definition', bgColor: 'bg-type-definition/10' },
-  analogy: { label: 'Analogía', emoji: '🔗', color: 'text-type-analogy', bgColor: 'bg-type-analogy/10' },
-  hook: { label: 'Hook', emoji: '💡', color: 'text-type-hook', bgColor: 'bg-type-hook/10' },
-  trivia: { label: 'Trivia', emoji: '🎯', color: 'text-type-trivia', bgColor: 'bg-type-trivia/10' },
-  insight: { label: 'Insight', emoji: '⚡', color: 'text-type-insight', bgColor: 'bg-type-insight/10' },
-  connection: { label: 'Conexión', emoji: '🧩', color: 'text-type-connection', bgColor: 'bg-type-connection/10' },
-  code: { label: 'Code', emoji: '💻', color: 'text-type-code', bgColor: 'bg-type-code/10' },
+  definition: { label: 'Definición', emoji: '📐', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+  ruptura: { label: 'Ruptura', emoji: '⚡', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+  puente: { label: 'Puente', emoji: '🌀', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+  operativo: { label: 'Operativo', emoji: '🔧', color: 'text-amber-400', bgColor: 'bg-amber-500/10' },
+  code: { label: 'Código', emoji: '💻', color: 'text-violet-400', bgColor: 'bg-violet-500/10' },
 };

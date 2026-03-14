@@ -90,7 +90,8 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setItem(KEY_DROPS, drops);
     // Save user-created drops separately for merging
-    const userDrops = drops.filter(d => !d.id.startsWith('q') && !d.id.match(/^\d+$/));
+    const seedIds = new Set(SAMPLE_DROPS.map(sd => sd.id));
+    const userDrops = drops.filter(dd => !seedIds.has(dd.id));
     setItem(KEY_USER_DROPS, userDrops);
   }, [drops]);
 

@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
+import { editDropWithAI } from '@/lib/groq';
 
 interface DropCardProps {
   drop: Drop;
@@ -42,13 +43,11 @@ function getFontScale(): string {
 }
 
 const typeStyles: Record<string, { bg: string; text: string; icon: string; gradient: string }> = {
-  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '💠', gradient: 'from-blue-500/30 to-purple-500/20' },
-  analogy: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🔗', gradient: 'from-purple-500/30 to-pink-500/20' },
-  hook: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '⚡', gradient: 'from-amber-500/30 to-orange-500/20' },
-  trivia: { bg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', text: 'text-emerald-400', icon: '🎯', gradient: 'from-emerald-500/30 to-cyan-500/20' },
-  insight: { bg: 'bg-rose-500/20 text-rose-400 border-rose-500/30', text: 'text-rose-400', icon: '💡', gradient: 'from-rose-500/30 to-red-500/20' },
-  connection: { bg: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', text: 'text-cyan-400', icon: '🧩', gradient: 'from-cyan-500/30 to-blue-500/20' },
-  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '⚙️', gradient: 'from-violet-500/30 to-indigo-500/20' },
+  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '📐', gradient: 'from-blue-500/30 to-purple-500/20' },
+  ruptura: { bg: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'text-red-400', icon: '⚡', gradient: 'from-red-500/30 to-rose-500/20' },
+  puente: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🌀', gradient: 'from-purple-500/30 to-pink-500/20' },
+  operativo: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '🔧', gradient: 'from-amber-500/30 to-orange-500/20' },
+  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '💻', gradient: 'from-violet-500/30 to-indigo-500/20' },
 };
 
 // ============= VISUAL COMPONENTS =============
@@ -198,7 +197,17 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const { toggleLike: contextToggleLike } = useBrainDrop();
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ title: drop.title, content: drop.content, type: drop.type, tags: drop.tags.join(', ') });
+  const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
+  const [editForm, setEditForm] = useState({
+    title: drop.title,
+    content: drop.content,
+    type: drop.type,
+    tags: drop.tags.join(', '),
+    codeSnippet: drop.codeSnippet || '',
+  });
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [aiEditing, setAiEditing] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   const handleToggleLike = onToggleLike || contextToggleLike;
 
@@ -352,72 +361,182 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1f] rounded-2xl p-6 w-full max-w-md border border-white/10">
-            <h3 className="text-lg font-bold text-white mb-4">Editar Drop</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Título</label>
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Contenido</label>
-                <textarea
-                  value={editForm.content}
-                  onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm h-24"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Tipo</label>
-                <select
-                  value={editForm.type}
-                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value as Drop['type'] })}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }}>
+          <div className="bg-[#1a1a1f] rounded-2xl w-full max-w-lg border border-white/10 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/5">
+              <div className="flex gap-1 bg-black/30 rounded-full p-1">
+                <button
+                  onClick={() => setEditMode('manual')}
+                  className={cn('px-4 py-1.5 rounded-full text-[12px] font-medium transition-all', editMode === 'manual' ? 'bg-[#7c3aed] text-white' : 'text-white/40 hover:text-white')}
                 >
-                  {Object.entries(DROP_TYPE_CONFIG).map(([key, config]) => (
-                    <option key={key} value={key}>{config.label}</option>
-                  ))}
-                </select>
+                  ✍️ Manual
+                </button>
+                <button
+                  onClick={() => setEditMode('ai')}
+                  className={cn('px-4 py-1.5 rounded-full text-[12px] font-medium transition-all', editMode === 'ai' ? 'bg-[#7c3aed] text-white' : 'text-white/40 hover:text-white')}
+                >
+                  🤖 IA
+                </button>
               </div>
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Tags (separados por coma)</label>
-                <input
-                  type="text"
-                  value={editForm.tags}
-                  onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
-                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm"
-                />
+              <button onClick={() => setShowEditModal(false)} className="text-white/30 hover:text-white transition-colors text-lg">✕</button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-4 flex-1">
+              {/* Modo manual */}
+              {editMode === 'manual' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1">Título</label>
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c3aed]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1">Tipo</label>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(DROP_TYPE_CONFIG).map(([key, cfg]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, type: key as Drop['type'] })}
+                          className={cn(
+                            'px-3 py-1.5 rounded-full text-[12px] border transition-all',
+                            editForm.type === key
+                              ? 'bg-[#7c3aed] border-[#7c3aed] text-white'
+                              : 'border-white/10 text-white/40 hover:border-[#7c3aed] hover:text-[#7c3aed]'
+                          )}
+                        >
+                          {cfg.emoji} {cfg.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1">Contenido</label>
+                    <textarea
+                      value={editForm.content}
+                      onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                      rows={5}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c3aed] resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1">Código (opcional)</label>
+                    <textarea
+                      value={editForm.codeSnippet}
+                      onChange={(e) => setEditForm({ ...editForm, codeSnippet: e.target.value })}
+                      rows={3}
+                      placeholder="// snippet opcional..."
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-[#a78bfa] text-xs font-mono focus:outline-none focus:border-[#7c3aed] resize-none placeholder:text-white/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/40 mb-1">Tags (separados por coma)</label>
+                    <input
+                      type="text"
+                      value={editForm.tags}
+                      onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c3aed]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Modo IA */}
+              {editMode === 'ai' && (
+                <div className="space-y-4">
+                  {/* Preview del drop actual */}
+                  <div className="rounded-xl border border-white/5 bg-black/20 p-4">
+                    <p className="text-[10px] text-white/30 mb-2 uppercase tracking-wider">Drop actual</p>
+                    <p className="text-white font-semibold text-sm mb-1">{editForm.title}</p>
+                    <p className="text-white/50 text-xs leading-relaxed line-clamp-3">{editForm.content}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-white/40 mb-2">¿Qué quieres cambiar?</label>
+                    <textarea
+                      value={aiInstruction}
+                      onChange={(e) => setAiInstruction(e.target.value)}
+                      rows={3}
+                      placeholder={'Ej: "Hazlo más conciso", "Cambia el tipo a operativo y agrega pasos concretos", "Mejora el tono, que sea más directo"...'}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#7c3aed] resize-none placeholder:text-white/20"
+                    />
+                  </div>
+
+                  {aiError && <p className="text-red-400 text-xs">{aiError}</p>}
+
+                  <button
+                    onClick={async () => {
+                      if (!aiInstruction.trim() || aiEditing) return;
+                      setAiEditing(true);
+                      setAiError('');
+                      try {
+                        const result = await editDropWithAI(
+                          { title: editForm.title, content: editForm.content, type: editForm.type, tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean), codeSnippet: editForm.codeSnippet || undefined },
+                          aiInstruction
+                        );
+                        setEditForm({
+                          title: result.title,
+                          content: result.content,
+                          type: result.type,
+                          tags: result.tags.join(', '),
+                          codeSnippet: result.codeSnippet || '',
+                        });
+                        setEditMode('manual');
+                        setAiInstruction('');
+                      } catch {
+                        setAiError('Error al editar con IA. Verifica tu API key de Groq.');
+                      } finally {
+                        setAiEditing(false);
+                      }
+                    }}
+                    disabled={!aiInstruction.trim() || aiEditing}
+                    className={cn(
+                      'w-full py-2.5 rounded-xl text-sm font-bold transition-all',
+                      aiInstruction.trim() && !aiEditing
+                        ? 'bg-[#7c3aed] hover:bg-[#6d28d9] text-white'
+                        : 'bg-white/5 text-white/30 cursor-not-allowed'
+                    )}
+                  >
+                    {aiEditing ? '⏳ Editando...' : '✨ Aplicar con IA'}
+                  </button>
+
+                  <p className="text-[11px] text-white/25 text-center">La IA aplica los cambios y te lleva al modo manual para revisar antes de guardar.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer — solo en modo manual */}
+            {editMode === 'manual' && (
+              <div className="flex gap-3 px-6 py-4 border-t border-white/5">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-2 text-white/40 hover:text-white transition-colors text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onEdit?.({
+                      ...drop,
+                      title: DOMPurify.sanitize(editForm.title, { ALLOWED_TAGS: [] }),
+                      content: DOMPurify.sanitize(editForm.content, { ALLOWED_TAGS: [] }),
+                      type: editForm.type,
+                      tags: editForm.tags.split(',').map(t => DOMPurify.sanitize(t.trim(), { ALLOWED_TAGS: [] })).filter(Boolean),
+                      codeSnippet: editForm.codeSnippet ? DOMPurify.sanitize(editForm.codeSnippet, { ALLOWED_TAGS: [] }) : undefined,
+                    });
+                    setShowEditModal(false);
+                  }}
+                  className="flex-1 bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-2 rounded-xl text-sm font-medium transition-colors"
+                >
+                  Guardar
+                </button>
               </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="flex-1 py-2 text-white/60 hover:text-white transition-colors text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  onEdit?.({
-                    ...drop,
-                    title: editForm.title,
-                    content: editForm.content,
-                    type: editForm.type as Drop['type'],
-                    tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean)
-                  });
-                  setShowEditModal(false);
-                }}
-                className="flex-1 bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-2 rounded-lg text-sm font-medium"
-              >
-                Guardar
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
