@@ -2,14 +2,6 @@ import type { Drop, Collection } from '@/types';
 
 export const SAMPLE_COLLECTIONS: Collection[] = [
   {
-    id: 'sql-apis',
-    name: 'SQL & APIs',
-    description: 'Bases de datos y APIs',
-    color: '#2563eb',
-    dropCount: 0,
-    createdAt: new Date().toISOString(),
-  },
-  {
     id: 'consciencia',
     name: 'Consciencia & Mente',
     description: 'Filosofía de la mente, metafísica, psicología, crítica cultural',
@@ -101,57 +93,6 @@ function d(partial: {
 
 export const SAMPLE_DROPS: Drop[] = [
 
-  // ═══════════════════════════════════════════
-  // SQL & APIs
-  // ═══════════════════════════════════════════
-
-  d({
-    id: 'sql-01',
-    title: 'JOINs: cruzar dos playlists',
-    content: 'Tienes playlist A y playlist B. INNER JOIN = solo las canciones que están en AMBAS. LEFT JOIN = toda la playlist A + las que coinciden con B. RIGHT JOIN = toda B + coincidencias con A. FULL = todas de ambas. En QA: JOIN para cruzar órdenes con pagos y ver si coinciden.',
-    type: 'puente',
-    tags: ['sql', 'bases-de-datos'],
-    collectionId: 'sql-apis',
-  }),
-  d({
-    id: 'sql-02',
-    title: 'REST vs SOAP: WhatsApp vs carta certificada',
-    content: 'REST = mandas un mensaje rápido en JSON, recibes respuesta, listo. SOAP = mandas un sobre XML con 47 sellos, certificaciones y acuse de recibo. Las empresas viejas (bancos, gobierno) usan SOAP. El 95% del mundo moderno usa REST. Rotoplas usa REST con Commerce Tools.',
-    type: 'puente',
-    tags: ['apis', 'rest', 'soap'],
-    collectionId: 'sql-apis',
-  }),
-  d({
-    id: 'sql-03',
-    title: 'HTTP status codes: los únicos que importan',
-    content: '200 = todo bien. 201 = se creó algo. 400 = mandaste basura. 401 = no estás logueado. 403 = logueado pero sin permiso. 404 = eso no existe. 500 = el servidor explotó. Cuando veas un 500 en Network tab de DevTools, es bug del backend garantizado.',
-    type: 'definition',
-    tags: ['apis', 'http', 'fundamentos'],
-    collectionId: 'sql-apis',
-  }),
-  d({
-    id: 'sql-04',
-    title: 'N+1: cuando la página tarda 30 segundos',
-    content: 'Imagina que para mostrar 100 productos, el sistema hace 1 query para la lista + 100 queries individuales para el precio de cada uno. 101 queries. Por eso la página tarda una eternidad. Solución: un solo JOIN que trae todo junto. Si ves una página lenta, este puede ser el porqué.',
-    type: 'ruptura',
-    tags: ['sql', 'performance', 'backend'],
-    collectionId: 'sql-apis',
-  }),
-  d({
-    id: 'sql-05',
-    title: 'SQL: Validar que el descuento se aplicó',
-    content: 'Query para verificar que el descuento se aplicó correctamente en la base de datos. Si final_price difiere de (original_price - discount_amount), hay un bug en el cálculo. Útil en QA antes de cerrar cualquier ticket de pagos o promociones.',
-    type: 'code',
-    tags: ['sql', 'qa', 'validacion', 'descuentos'],
-    collectionId: 'sql-apis',
-    codeSnippet: `SELECT order_id,
-       original_price,
-       discount_amount,
-       final_price
-FROM order_items
-WHERE order_id = 'ORD-2026-0211'
-  AND final_price != (original_price - discount_amount);`,
-  }),
 
   // ═══════════════════════════════════════════
   // CONSCIENCIA & MENTE
@@ -1621,6 +1562,48 @@ WHERE order_id = 'ORD-2026-0211'
     type: 'definition',
     tags: ['errores', 'manejo-errores', 'buenas-practicas', 'glosario'],
     collectionId: 'software',
+  }),
+  d({
+    id: 'sw-54',
+    title: 'SQL JOINs: cruzar tablas como cruzar listas',
+    content: 'INNER JOIN = solo los registros que existen en AMBAS tablas. LEFT JOIN = todos los de la tabla izquierda, más los que coincidan con la derecha (nulos donde no hay match). FULL JOIN = todos de ambas, nulos donde no hay coincidencia. El caso práctico más común: cruzar órdenes con pagos para verificar que cada orden tiene su pago registrado.',
+    type: 'puente',
+    tags: ['sql', 'bases-de-datos', 'joins', 'glosario'],
+    collectionId: 'software',
+  }),
+  d({
+    id: 'sw-55',
+    title: 'REST vs SOAP: modernidad vs burocracia',
+    content: 'REST = JSON, stateless, URLs claras, verbos HTTP (GET/POST/PUT/DELETE). Ligero, rápido, legible. SOAP = XML envuelto en XML, contratos WSDL, verificación de entrega incorporada. Robusto en papel, pesado en práctica. Bancos, gobierno y sistemas legacy usan SOAP. El 95% del software nuevo usa REST. Si trabajas con APIs empresariales viejas, SOAP aparece — solo reconócelo.',
+    type: 'puente',
+    tags: ['apis', 'rest', 'soap', 'protocolos', 'glosario'],
+    collectionId: 'software',
+  }),
+  d({
+    id: 'sw-56',
+    title: 'N+1: el problema de rendimiento más silencioso',
+    content: 'Tienes una lista de 100 órdenes. Tu código hace 1 query para traer las órdenes, luego 1 query por cada orden para traer los detalles. Resultado: 101 queries. La página tarda 30 segundos. El problema no aparece en desarrollo con 5 registros — solo en producción con miles. Solución: un solo JOIN que trae todo en una consulta. Cuando una página lenta no tiene explicación obvia, empieza aquí.',
+    type: 'ruptura',
+    tags: ['sql', 'performance', 'backend', 'optimizacion'],
+    collectionId: 'software',
+  }),
+  d({
+    id: 'sw-57',
+    title: 'SQL para validar datos en QA',
+    content: 'Cuando el frontend dice que el descuento se aplicó, no le creas hasta verificarlo en la DB. Un SELECT directo con condición de inconsistencia te dice si el cálculo está roto — sin pasar por el API ni el frontend que pueden enmascarar el error. Esta técnica aplica a cualquier validación de negocio: precios, inventarios, estados de orden.',
+    type: 'code',
+    tags: ['sql', 'qa', 'validacion', 'bases-de-datos'],
+    collectionId: 'software',
+    codeSnippet: `-- Detectar órdenes donde el descuento no cuadra
+SELECT order_id,
+       original_price,
+       discount_amount,
+       final_price,
+       (original_price - discount_amount) AS expected_price
+FROM order_items
+WHERE final_price != (original_price - discount_amount);
+
+-- Si devuelve filas, hay bug en el cálculo de descuentos`,
   }),
 
   // ============================================================

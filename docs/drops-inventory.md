@@ -1,16 +1,7 @@
 # BrainDrop — Inventario de drops
 
 > Última actualización: 2026-03-14
-> **Total: 262 drops** en 8 colecciones
-
----
-
-### SQL & APIs — 5 drops
-- `sql-01` [puente] JOINs: cruzar dos playlists
-- `sql-02` [puente] REST vs SOAP: WhatsApp vs carta certificada
-- `sql-03` [definition] HTTP status codes: los únicos que importan
-- `sql-04` [ruptura] N+1: cuando la página tarda 30 segundos
-- `sql-05` [code] SQL: Validar que el descuento se aplicó
+> **Total: 261 drops** en 7 colecciones
 
 ---
 
@@ -53,7 +44,7 @@
 
 ---
 
-### Software & Código — 53 drops
+### Software & Código — 57 drops
 - `sw-01` [definition] Closure: la función que recuerda de dónde viene
 - `sw-02` [definition] Media vs Mediana: cuál miente
 - `sw-03` [ruptura] Correlación ≠ Causación: el error que todos cometen
@@ -107,6 +98,10 @@
 - `sw-51` [operativo] Cómo leer código que no escribiste
 - `sw-52` [operativo] Debugging sistemático — deja de adivinar
 - `sw-53` [definition] Manejo de errores — la filosofía
+- `sw-54` [puente] SQL JOINs: cruzar tablas como cruzar listas
+- `sw-55` [puente] REST vs SOAP: modernidad vs burocracia
+- `sw-56` [ruptura] N+1: el problema de rendimiento más silencioso
+- `sw-57` [code] SQL para validar datos en QA
 
 ---
 
