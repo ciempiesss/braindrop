@@ -66,12 +66,16 @@ export function Feed({
     };
   }, []);
 
-  // ── Reconstruir pool cuando cambia la semilla o los drops ─────────────────
+  // ── Resetear página solo cuando cambia la semilla o los filtros ──────────
+  useEffect(() => {
+    setSessionPage(1);
+  }, [sessionSeed, selectedTag, activeTab]);
+
+  // ── Reconstruir pool cuando cambia la semilla, filtros o drops ────────────
   useEffect(() => {
     if (activeTab !== 'para-ti') return;
     const pool = buildSessionPool(drops, sessionSeed, selectedTag, visibleCollections);
     setSessionPool(pool);
-    setSessionPage(1);
   }, [sessionSeed, drops, selectedTag, visibleCollections, activeTab]);
 
   // ── Drops visibles calculados ─────────────────────────────────────────────
@@ -106,7 +110,7 @@ export function Feed({
   }, [drops, activeTab]);
 
   const hasMoreInSession = sessionPool.length > visibleCount;
-  const canLoadMore = sessionPage < Math.ceil(MAX_SESSION / PAGE_SIZE) && hasMoreInSession;
+  const canLoadMore = visibleCount < MAX_SESSION && hasMoreInSession;
   const isSessionExhausted = activeTab === 'para-ti' && displayedDrops.length > 0 && !hasMoreInSession;
 
   // ── Handlers de sesión ────────────────────────────────────────────────────
