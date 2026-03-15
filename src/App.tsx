@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrainDropProvider } from '@/hooks/useBrainDrop';
 import { Sidebar } from '@/components/Sidebar';
 import { Feed } from '@/components/Feed';
@@ -6,10 +6,41 @@ import { RightSidebar } from '@/components/RightSidebar';
 import { Quiz } from '@/components/Quiz';
 import { Collections } from '@/components/Collections';
 import { Settings } from '@/components/Settings';
+import { Explore } from '@/components/Explore';
+import { Progress } from '@/components/Progress';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { cn } from '@/lib/utils';
+import { exportData } from '@/lib/exportImport';
 
 type Tab = 'feed' | 'explore' | 'progress' | 'quiz' | 'collections' | 'settings';
+
+function StorageFullBanner() {
+  const { drops, collections } = useBrainDrop();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setVisible(true);
+    window.addEventListener('braindrop:storage-full', handler);
+    return () => window.removeEventListener('braindrop:storage-full', handler);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[100] bg-[#f87171] text-white px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
+      <p className="text-sm font-medium">⚠️ Almacenamiento lleno. Exporta tus datos para no perderlos.</p>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => exportData(drops, collections)}
+          className="px-3 py-1 bg-white text-[#f87171] rounded-full text-xs font-bold hover:bg-white/90 transition-colors"
+        >
+          Exportar JSON
+        </button>
+        <button onClick={() => setVisible(false)} className="text-white/70 hover:text-white text-lg leading-none">✕</button>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -29,7 +60,9 @@ function AppContent() {
       case 'feed':
         return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
       case 'explore':
-        return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
+        return <Explore />;
+      case 'progress':
+        return <Progress />;
       case 'quiz':
         return <Quiz />;
       case 'collections':
@@ -43,6 +76,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      <StorageFullBanner />
+
       {/* Sidebar desktop - siempre visible, posición normal */}
       <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-[260px] lg:z-50">
         <Sidebar
@@ -67,7 +102,7 @@ function AppContent() {
       {/* Sidebar móvil overlay */}
       {sidebarOpen && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -90,7 +125,7 @@ function AppContent() {
       <div className="lg:hidden flex flex-col h-screen">
         {/* Header móvil */}
         <header className="flex items-center justify-between p-4 border-b border-[#2f3336] bg-[#0a0a0a] sticky top-0 z-30">
-          <button 
+          <button
             onClick={() => setSidebarOpen(true)}
             className="text-2xl text-[#e7e9ea]"
           >
@@ -112,20 +147,22 @@ function AppContent() {
           <div className="flex justify-around py-2">
             {[
               { id: 'feed', icon: '🏠', label: 'Feed' },
+              { id: 'explore', icon: '🔍', label: 'Explorar' },
+              { id: 'progress', icon: '📈', label: 'Progreso' },
               { id: 'quiz', icon: '🎯', label: 'Quiz' },
-              { id: 'collections', icon: '📚', label: 'Colecciones' },
+              { id: 'collections', icon: '📚', label: 'Cols' },
               { id: 'settings', icon: '⚙️', label: 'Config' },
             ].map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as Tab)}
                 className={cn(
-                  'flex flex-col items-center py-2 px-4',
+                  'flex flex-col items-center py-2 px-2',
                   activeTab === item.id ? 'text-[#7c3aed]' : 'text-[#71767b]'
                 )}
               >
                 <span className="text-xl">{item.icon}</span>
-                <span className="text-[11px] mt-0.5">{item.label}</span>
+                <span className="text-[10px] mt-0.5">{item.label}</span>
               </button>
             ))}
           </div>

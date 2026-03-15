@@ -3,6 +3,12 @@ import type { Drop, Collection } from '@/types';
 import { SAMPLE_DROPS, SAMPLE_COLLECTIONS } from '@/data/seed';
 import { generateId } from '@/lib/utils';
 
+interface Streak {
+  lastDate: string;
+  count: number;
+  record: number;
+}
+
 interface BrainDropContextType {
   drops: Drop[];
   collections: Collection[];
@@ -16,6 +22,7 @@ interface BrainDropContextType {
   filterDrops: (type?: string, collectionId?: string, tag?: string) => Drop[];
   toggleLike: (id: string) => void;
   markAsViewed: (id: string) => void;
+  streak: Streak;
 }
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
@@ -55,8 +62,32 @@ function setItem(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.warn('Storage error:', e);
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      window.dispatchEvent(new CustomEvent('braindrop:storage-full'));
+    }
   }
+}
+
+const KEY_STREAK = 'braindrop_streak';
+
+function loadStreak(): Streak {
+  try {
+    const stored = localStorage.getItem(KEY_STREAK);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return { lastDate: '', count: 0, record: 0 };
+}
+
+function updateStreak(): void {
+  const today = new Date().toDateString();
+  const stored = loadStreak();
+  if (stored.lastDate === today) return;
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const newCount = stored.lastDate === yesterday ? stored.count + 1 : 1;
+  const newRecord = Math.max(newCount, stored.record);
+  try {
+    localStorage.setItem(KEY_STREAK, JSON.stringify({ lastDate: today, count: newCount, record: newRecord }));
+  } catch { /* ignore */ }
 }
 
 export function BrainDropProvider({ children }: { children: ReactNode }) {
@@ -85,6 +116,14 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [collections, setCollections] = useState<Collection[]>(initialCollections);
+
+  const collectionsWithCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    drops.forEach(d => { if (d.collectionId) counts[d.collectionId] = (counts[d.collectionId] || 0) + 1; });
+    return collections.map(c => ({ ...c, dropCount: counts[c.id] || 0 }));
+  }, [drops, collections]);
+
+  const streak = useMemo(() => loadStreak(), [drops]);
 
   // Persist on change
   useEffect(() => {
@@ -146,6 +185,7 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   };
 
   const reviewDrop: BrainDropContextType['reviewDrop'] = (id, quality) => {
+    updateStreak();
     setDrops((prev) =>
       prev.map((drop) => {
         if (drop.id !== id) return drop;
@@ -214,18 +254,19 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   };
 
   const markAsViewed: BrainDropContextType['markAsViewed'] = useCallback((id) => {
-    setDrops((prev) =>
-      prev.map((drop) =>
-        drop.id === id ? { ...drop, viewed: true } : drop
-      )
-    );
+    setDrops((prev) => {
+      const drop = prev.find(d => d.id === id);
+      if (!drop || drop.viewed) return prev;
+      updateStreak();
+      return prev.map((d) => d.id === id ? { ...d, viewed: true } : d);
+    });
   }, []);
 
   return (
     <BrainDropContext.Provider
       value={{
         drops,
-        collections,
+        collections: collectionsWithCount,
         addDrop,
         updateDrop,
         deleteDrop,
@@ -236,6 +277,7 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
         filterDrops,
         toggleLike,
         markAsViewed,
+        streak,
       }}
     >
       {children}

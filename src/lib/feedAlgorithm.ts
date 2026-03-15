@@ -42,7 +42,6 @@ function diversify(drops: Drop[]): Drop[] {
     }
   }
 
-  // Insertar diferidos al final (evitar cortarlos completamente)
   return [...result, ...deferred];
 }
 
@@ -69,46 +68,74 @@ export function buildSessionPool(
     pool = pool.filter(d => d.collectionId && visibleCollections.includes(d.collectionId));
   }
 
-  // Bucket A: no vistos nunca — los más viejos primero (pendientes desde más tiempo)
-  const bucketA = pool
-    .filter(d => d.viewed !== true)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // Bucket A: no vistos nunca
+  const bucketA = seededShuffle(
+    pool.filter(d => d.viewed !== true),
+    seed
+  );
 
-  // Bucket B: por repasar según SM-2
-  const bucketB = pool
-    .filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now)
-    .sort((a, b) => new Date(a.nextReviewDate).getTime() - new Date(b.nextReviewDate).getTime());
+  // Bucket B: por repasar según SM-2 (due date pasada)
+  const bucketB = seededShuffle(
+    pool.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now),
+    seed + 1
+  );
 
   // Bucket C: liked pero no urgentes
   const bucketAIds = new Set(bucketA.map(d => d.id));
   const bucketBIds = new Set(bucketB.map(d => d.id));
-  const bucketC = pool.filter(
-    d =>
-      d.viewed === true &&
-      d.liked === true &&
-      new Date(d.nextReviewDate) > now &&
-      !bucketAIds.has(d.id) &&
-      !bucketBIds.has(d.id)
+  const bucketC = seededShuffle(
+    pool.filter(
+      d =>
+        d.viewed === true &&
+        d.liked === true &&
+        new Date(d.nextReviewDate) > now &&
+        !bucketAIds.has(d.id) &&
+        !bucketBIds.has(d.id)
+    ),
+    seed + 2
   );
 
-  // Bucket D: comodín — el resto
+  // Bucket D: comodín — todo lo demás
   const usedIds = new Set([...bucketAIds, ...bucketBIds, ...bucketC.map(d => d.id)]);
-  const bucketD = pool.filter(d => !usedIds.has(d.id));
+  const bucketD = seededShuffle(
+    pool.filter(d => !usedIds.has(d.id)),
+    seed + 3
+  );
 
-  // Proporciones del pool de 40
-  const quotaA = Math.round(MAX_SESSION * 0.3); // 12
-  const quotaB = Math.round(MAX_SESSION * 0.4); // 16
-  const quotaC = Math.round(MAX_SESSION * 0.2); // 8
-  const quotaD = MAX_SESSION - quotaA - quotaB - quotaC; // 4
-
-  // Mezcla con semilla (variabilidad entre sesiones, determinístico para la misma semilla)
-  const selected = [
-    ...seededShuffle(bucketA, seed).slice(0, quotaA),
-    ...seededShuffle(bucketB, seed + 1).slice(0, quotaB),
-    ...seededShuffle(bucketC, seed + 2).slice(0, quotaC),
-    ...seededShuffle(bucketD, seed + 3).slice(0, quotaD),
+  // Llenar hasta MAX_SESSION redistribuyendo slots sobrantes
+  // Prioridad: A (nuevos) > B (repasar) > C (liked) > D (comodín)
+  const buckets = [bucketA, bucketB, bucketC, bucketD];
+  const targets = [
+    Math.round(MAX_SESSION * 0.3),  // 12 ideales para A
+    Math.round(MAX_SESSION * 0.4),  // 16 ideales para B
+    Math.round(MAX_SESSION * 0.2),  // 8 ideales para C
+    MAX_SESSION - Math.round(MAX_SESSION * 0.3) - Math.round(MAX_SESSION * 0.4) - Math.round(MAX_SESSION * 0.2), // 4 para D
   ];
 
+  const taken: Drop[][] = [[], [], [], []];
+  let remaining = MAX_SESSION;
+
+  // Primera pasada: tomar hasta el target de cada bucket
+  for (let i = 0; i < buckets.length; i++) {
+    const take = Math.min(targets[i], buckets[i].length, remaining);
+    taken[i] = buckets[i].slice(0, take);
+    remaining -= take;
+  }
+
+  // Segunda pasada: si sobran slots, redistribuir desde los buckets que tengan más
+  if (remaining > 0) {
+    for (let i = 0; i < buckets.length && remaining > 0; i++) {
+      const alreadyTaken = taken[i].length;
+      const available = buckets[i].length - alreadyTaken;
+      if (available > 0) {
+        const extra = Math.min(available, remaining);
+        taken[i] = [...taken[i], ...buckets[i].slice(alreadyTaken, alreadyTaken + extra)];
+        remaining -= extra;
+      }
+    }
+  }
+
+  const selected = taken.flat();
   return diversify(selected);
 }
 

@@ -1,4 +1,5 @@
 import { useBrainDrop } from '@/hooks/useBrainDrop';
+import { loadSettings } from '@/components/Settings';
 
 interface RightSidebarProps {
   onStartQuiz: () => void;
@@ -7,9 +8,9 @@ interface RightSidebarProps {
 
 export function RightSidebar({ onStartQuiz, onTagClick }: RightSidebarProps) {
   const { drops, getDropsForReview } = useBrainDrop();
-  
+
   const dropsForReview = getDropsForReview().length;
-  const weeklyGoal = 20;
+  const weeklyGoal = loadSettings().weeklyGoal ?? 20;
   
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -103,13 +104,14 @@ export function RightSidebar({ onStartQuiz, onTagClick }: RightSidebarProps) {
           </div>
         ) : (
           trending.map((item) => (
-            <div 
+            <button
               key={item.title}
-              className="p-3 cursor-pointer hover:bg-[#1d1f23] transition-colors border-b border-[#2f3336] last:border-b-0"
+              onClick={() => onTagClick?.(item.title)}
+              className="w-full text-left p-3 cursor-pointer hover:bg-[#1d1f23] transition-colors border-b border-[#2f3336] last:border-b-0"
             >
               <div className="font-bold text-[14px] text-[#e7e9ea]">{item.title}</div>
               <div className="text-[13px] text-[#71767b] mt-0.5">{item.count} drops</div>
-            </div>
+            </button>
           ))
         )}
       </div>

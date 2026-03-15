@@ -28,8 +28,6 @@ function loadVisibleCollections(): string[] {
   return [];
 }
 
-const defaultVisibleCollections = typeof window !== 'undefined' ? loadVisibleCollections() : [];
-
 export function Feed({
   selectedTag,
   onClearTagFilter,
@@ -41,42 +39,33 @@ export function Feed({
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
-  const [visibleCollections, setVisibleCollections] = useState<string[]>(defaultVisibleCollections);
-
-  // ── Sesión ────────────────────────────────────────────────────────────────
-  const [sessionSeed, setSessionSeed] = useState<number>(() => Date.now());
-  const [sessionPage, setSessionPage] = useState<number>(1);
-  const [sessionPool, setSessionPool] = useState<Drop[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [refreshToast, setRefreshToast] = useState<string | null>(null);
+
+  // ── Pool congelado — solo IDs, en ref para evitar re-renders ────────────
+  const poolIdsRef = useRef<string[]>([]);
+  const [poolVersion, setPoolVersion] = useState(0); // bump para forzar recalculo
+  const [sessionPage, setSessionPage] = useState<number>(1);
+
+  // Función imperativa para reconstruir el pool
+  const rebuildPool = useCallback((dropsSnapshot: Drop[], tag?: string | null) => {
+    const vc = loadVisibleCollections();
+    const pool = buildSessionPool(dropsSnapshot, Date.now(), tag, vc);
+    poolIdsRef.current = pool.map(d => d.id);
+    setSessionPage(1);
+    setPoolVersion(v => v + 1);
+  }, []);
+
+  // Construir pool al mount
+  useEffect(() => {
+    rebuildPool(drops, selectedTag);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const touchStartY = useRef(0);
   const currentPullDistance = useRef(0);
   const [isPulling, setIsPulling] = useState(false);
-
-  // ── Sincronizar visibleCollections con settings ───────────────────────────
-  useEffect(() => {
-    const handleStorage = () => setVisibleCollections(loadVisibleCollections());
-    window.addEventListener('storage', handleStorage);
-    const interval = setInterval(() => setVisibleCollections(loadVisibleCollections()), 1000);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
-    };
-  }, []);
-
-  // ── Resetear página solo cuando cambia la semilla o los filtros ──────────
-  useEffect(() => {
-    setSessionPage(1);
-  }, [sessionSeed, selectedTag, activeTab]);
-
-  // ── Reconstruir pool cuando cambia la semilla, filtros o drops ────────────
-  useEffect(() => {
-    if (activeTab !== 'para-ti') return;
-    const pool = buildSessionPool(drops, sessionSeed, selectedTag, visibleCollections);
-    setSessionPool(pool);
-  }, [sessionSeed, drops, selectedTag, visibleCollections, activeTab]);
 
   // ── Drops visibles calculados ─────────────────────────────────────────────
   const visibleCount = SESSION_SIZE + Math.max(0, sessionPage - 1) * PAGE_SIZE;
@@ -92,16 +81,23 @@ export function Feed({
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     // recientes
-    if (visibleCollections.length > 0) {
-      filtered = filtered.filter(d => d.collectionId && visibleCollections.includes(d.collectionId));
+    const vc = loadVisibleCollections();
+    if (vc.length > 0) {
+      filtered = filtered.filter(d => d.collectionId && vc.includes(d.collectionId));
     }
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [drops, activeTab, selectedTag, visibleCollections]);
+  }, [drops, activeTab, selectedTag]);
 
   const displayedDrops = useMemo(() => {
-    if (activeTab === 'para-ti') return sessionPool.slice(0, visibleCount);
+    if (activeTab === 'para-ti') {
+      const ids = poolIdsRef.current.slice(0, visibleCount);
+      const dropMap = new Map(drops.map(d => [d.id, d]));
+      return ids.map(id => dropMap.get(id)).filter((d): d is Drop => d != null);
+    }
     return baseFilteredDrops;
-  }, [activeTab, sessionPool, visibleCount, baseFilteredDrops]);
+  // poolVersion fuerza recalculo cuando el pool se reconstruye
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, visibleCount, drops, baseFilteredDrops, poolVersion]);
 
   // ── Stats de sesión ───────────────────────────────────────────────────────
   const sessionStats = useMemo(() => {
@@ -109,7 +105,7 @@ export function Feed({
     return getSessionStats(drops);
   }, [drops, activeTab]);
 
-  const hasMoreInSession = sessionPool.length > visibleCount;
+  const hasMoreInSession = poolIdsRef.current.length > visibleCount;
   const canLoadMore = visibleCount < MAX_SESSION && hasMoreInSession;
   const isSessionExhausted = activeTab === 'para-ti' && displayedDrops.length > 0 && !hasMoreInSession;
 
@@ -123,9 +119,9 @@ export function Feed({
   }, []);
 
   const handleNewSession = useCallback(() => {
-    setSessionSeed(Date.now());
+    rebuildPool(drops, selectedTag);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [drops, selectedTag, rebuildPool]);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -144,7 +140,6 @@ export function Feed({
   const handleTouchEnd = useCallback(() => {
     setIsPulling(false);
     if (currentPullDistance.current > 100 && activeTab === 'para-ti') {
-      const now = new Date();
       const stats = getSessionStats(drops);
       const message =
         stats.unseen > 0
@@ -154,11 +149,11 @@ export function Feed({
           : 'Feed actualizado';
 
       setRefreshToast(message);
-      setSessionSeed(Date.now());
+      rebuildPool(drops, selectedTag);
       setTimeout(() => setRefreshToast(null), 3000);
     }
     currentPullDistance.current = 0;
-  }, [drops, activeTab]);
+  }, [drops, activeTab, selectedTag, rebuildPool]);
 
   return (
     <div className="flex flex-col bg-[#0a0a0a]">
@@ -245,7 +240,15 @@ export function Feed({
       >
         {displayedDrops.length === 0 ? (
           <div className="p-8 text-center text-[#71767b]">
-            <p>No hay drops todavía</p>
+            {activeTab === 'favoritos' ? (
+              <>
+                <p className="text-2xl mb-2">❤️</p>
+                <p>Aún no tienes favoritos</p>
+                <p className="text-sm mt-1">Dale like a un drop para guardarlo aquí</p>
+              </>
+            ) : (
+              <p>No hay drops todavía</p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3 p-4">

@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
+import { Compose } from '@/components/Compose';
 import { Folder, ChevronRight, ArrowLeft } from 'lucide-react';
 import type { Collection } from '@/types';
 
 export function Collections() {
-  const { collections, drops } = useBrainDrop();
+  const { collections, drops, addDrop, deleteDrop, updateDrop, toggleLike, markAsViewed } = useBrainDrop();
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [showCompose, setShowCompose] = useState(false);
 
   const collectionDrops = useMemo(
     () => selectedCollection
@@ -53,17 +55,51 @@ export function Collections() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative">
           {collectionDrops.length === 0 ? (
             <div className="p-8 text-center text-[#71767b]">
               <p>No hay drops en esta colección aún</p>
             </div>
           ) : (
-            collectionDrops.map((drop) => (
-              <DropCard key={drop.id} drop={drop} />
-            ))
+            <div className="flex flex-col gap-3 p-4">
+              {collectionDrops.map((drop) => (
+                <DropCard
+                  key={drop.id}
+                  drop={drop}
+                  onToggleLike={toggleLike}
+                  onMarkViewed={markAsViewed}
+                  onDelete={deleteDrop}
+                  onEdit={updated => updateDrop(updated.id, updated)}
+                />
+              ))}
+            </div>
           )}
+
+          {/* FAB agregar drop */}
+          <button
+            onClick={() => setShowCompose(true)}
+            className="fixed bottom-24 right-4 w-14 h-14 bg-[#7c3aed] rounded-full flex items-center justify-center text-2xl shadow-lg hover:bg-[#6d28d9] transition-colors z-30 lg:bottom-6"
+            title="Agregar drop a esta colección"
+          >
+            ＋
+          </button>
         </div>
+
+        {showCompose && (
+          <div className="fixed inset-0 z-50 bg-[#0a0a0a] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-[#2f3336]">
+              <h2 className="font-bold text-[#e7e9ea]">Nuevo Drop en {selectedCollection.name}</h2>
+              <button onClick={() => setShowCompose(false)} className="text-[#71767b] text-xl">✕</button>
+            </div>
+            <Compose
+              collectionId={selectedCollection.id}
+              onSubmit={(drop) => {
+                addDrop({ ...drop, collectionId: selectedCollection.id });
+                setShowCompose(false);
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   }

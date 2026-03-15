@@ -43,13 +43,42 @@ function getFontScale(): string {
   return '1';
 }
 
-const typeStyles: Record<string, { bg: string; text: string; icon: string; gradient: string }> = {
-  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '📐', gradient: 'from-blue-500/30 to-purple-500/20' },
-  ruptura: { bg: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'text-red-400', icon: '⚡', gradient: 'from-red-500/30 to-rose-500/20' },
-  puente: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🌀', gradient: 'from-purple-500/30 to-pink-500/20' },
-  operativo: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '🔧', gradient: 'from-amber-500/30 to-orange-500/20' },
-  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '💻', gradient: 'from-violet-500/30 to-indigo-500/20' },
+const typeStyles: Record<string, { bg: string; text: string; icon: string; gradient: string; cardBorder: string; cardAccent: string }> = {
+  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '📐', gradient: 'from-blue-500/30 to-purple-500/20', cardBorder: 'border-l-[3px] border-l-blue-500/50', cardAccent: '' },
+  ruptura: { bg: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'text-red-400', icon: '⚡', gradient: 'from-red-500/30 to-rose-500/20', cardBorder: 'border-l-[3px] border-l-red-500/70', cardAccent: 'bg-gradient-to-r from-red-500/[0.04] to-transparent' },
+  puente: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🌀', gradient: 'from-purple-500/30 to-pink-500/20', cardBorder: 'border-l-[3px] border-l-purple-500/50', cardAccent: '' },
+  operativo: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '🔧', gradient: 'from-amber-500/30 to-orange-500/20', cardBorder: 'border-l-[3px] border-l-amber-500/50', cardAccent: 'bg-gradient-to-r from-amber-500/[0.03] to-transparent' },
+  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '💻', gradient: 'from-violet-500/30 to-indigo-500/20', cardBorder: 'border-l-[3px] border-l-violet-500/50', cardAccent: '' },
 };
+
+// ── Inline markdown: **bold**, ==highlight==, first-sentence hook ────────
+function renderInlineMarkdown(text: string): string {
+  let html = text
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-[#e7e9ea] font-semibold">$1</strong>')
+    .replace(/==(.+?)==/g, '<mark class="bg-purple-500/20 text-purple-300 px-0.5 rounded">$1</mark>')
+    .replace(/\n/g, '<br>');
+
+  // First sentence hook: make the first sentence brighter so the eye lands there
+  const firstDot = html.indexOf('. ');
+  if (firstDot > 0 && firstDot < 200) {
+    html =
+      '<span class="text-white/80">' +
+      html.slice(0, firstDot + 1) +
+      '</span>' +
+      html.slice(firstDot + 1);
+  }
+
+  return html;
+}
+
+// ── Tag color from string hash ───────────────────────────────────────────
+function tagHue(tag: string): number {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % 360;
+}
 
 // ============= VISUAL COMPONENTS =============
 
@@ -198,6 +227,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const { toggleLike: contextToggleLike } = useBrainDrop();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [editForm, setEditForm] = useState({
     title: drop.title,
@@ -256,17 +286,21 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   return (
     <article
       ref={cardRef}
-      className="p-4 border-b border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer w-full"
-      style={{ 
+      className={cn(
+        "px-5 py-5 border-b border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer w-full",
+        styles.cardBorder,
+        styles.cardAccent
+      )}
+      style={{
         background: 'linear-gradient(145deg, #0f0f14 0%, #0a0a0f 100%)',
         boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset'
       }}
     >
-      {/* Header with gradient badge */}
-      <div className="flex items-center gap-2 mb-3">
-        <span 
+      {/* Header: badge + tags — compact row */}
+      <div className="flex items-center gap-2 mb-4">
+        <span
           className={cn(
-            'px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all',
+            'px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all',
             styles.bg
           )}
           style={{
@@ -278,28 +312,68 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           {config.label}
         </span>
         {drop.tags.length > 0 && (
-          <div className="flex gap-1">
-            {drop.tags.slice(0, 2).map((tag, i) => (
-              <span key={i} className="text-[10px] text-white/30">#{tag}</span>
-            ))}
+          <div className="flex gap-1 flex-wrap">
+            {drop.tags.slice(0, 3).map((tag, i) => {
+              const hue = tagHue(tag);
+              return (
+                <span
+                  key={i}
+                  className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                  style={{
+                    color: `hsl(${hue}, 50%, 65%)`,
+                    backgroundColor: `hsla(${hue}, 50%, 40%, 0.08)`,
+                  }}
+                >
+                  #{tag}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Title */}
-      <h3 
-        className="font-bold mb-2 text-white leading-tight"
-        style={{ fontSize: `calc(18px * ${fontScale})` }}
+      {/* Title — tighter tracking, generous size */}
+      <h3
+        className="font-extrabold mb-3 text-[#e7e9ea]"
+        style={{
+          fontSize: `calc(20px * ${fontScale})`,
+          lineHeight: '1.3',
+          letterSpacing: '-0.015em',
+        }}
       >
         {drop.title}
       </h3>
 
-      {/* Content */}
-      <p 
-        className="text-white/60 leading-relaxed mb-3"
-        style={{ fontSize: `calc(14px * ${fontScale})` }}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(drop.content.replace(/\n/g, '<br>')) }}
-      />
+      {/* Content — readable line-height, first sentence highlighted */}
+      {(() => {
+        const rendered = renderInlineMarkdown(drop.content);
+        const sanitized = DOMPurify.sanitize(rendered);
+        const isLong = drop.content.length > 280;
+        return (
+          <div className="mb-3">
+            <div
+              className={cn(
+                "text-white/50",
+                isLong && !expanded && "line-clamp-4"
+              )}
+              style={{
+                fontSize: `calc(15.5px * ${fontScale})`,
+                lineHeight: '1.75',
+                wordSpacing: '0.02em',
+              }}
+              dangerouslySetInnerHTML={{ __html: sanitized }}
+            />
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-[12px] text-purple-400/80 hover:text-purple-300 mt-1.5 transition-colors font-medium"
+              >
+                {expanded ? '← Menos' : 'Ver más →'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Visual */}
       {hasVisual && (
@@ -321,44 +395,40 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-4 mt-3 pt-2 border-t border-white/5">
-        <button 
+      {/* Actions — low visual weight, doesn't compete with content */}
+      <div className="flex items-center gap-3 mt-4 pt-2.5 border-t border-white/[0.04]">
+        <button
           onClick={() => {
             if (confirm('¿Estás seguro de que quieres eliminar este drop?')) {
               onDelete?.(drop.id);
             }
           }}
-          className="flex items-center gap-1.5 text-white/40 hover:text-red-400 transition-colors text-xs"
+          className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
         >
-          <span className="text-sm">🗑️</span>
-          <span>Eliminar</span>
+          🗑️
         </button>
-        <button 
+        <button
           onClick={() => setShowEditModal(true)}
-          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors text-xs"
+          className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px]"
         >
-          <span className="text-sm">✏️</span>
-          <span>Editar</span>
+          ✏️
         </button>
-        <button 
+        <button
           onClick={() => handleToggleLike(drop.id)}
           className={cn(
-            "flex items-center gap-1.5 transition-colors text-xs",
-            drop.liked ? "text-rose-400" : "text-white/40 hover:text-rose-400"
+            "transition-colors text-[11px]",
+            drop.liked ? "text-rose-400" : "text-white/25 hover:text-rose-400"
           )}
         >
-          <span className="text-sm">{drop.liked ? '❤️' : '🤍'}</span>
-          <span>Guardar</span>
+          {drop.liked ? '❤️' : '🤍'}
         </button>
-        <button 
+        <button
           onClick={onAI}
-          className="flex items-center gap-1.5 text-white/40 hover:text-[#7c3aed] transition-colors ml-auto text-xs"
+          className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px] ml-auto"
         >
-          <span>🤖</span>
-          <span>IA</span>
+          🤖 IA
         </button>
-        <span className="text-white/30 text-xs">{formatRelativeDate(drop.createdAt)}</span>
+        <span className="text-white/15 text-[10px]">{formatRelativeDate(drop.createdAt)}</span>
       </div>
 
       {/* Edit Modal */}
