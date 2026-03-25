@@ -295,11 +295,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const styles = typeStyles[drop.type];
   const hasVisual = drop.visualContent || drop.visualData;
 
-  // Fix F — líneas visibles en collapsed según tipo
-  const collapsedLines = drop.type === 'definition' ? 1
-    : drop.type === 'ruptura' ? 3
-    : 2;
-
   const renderVisual = () => {
     if (drop.visualContent && !drop.visualData) {
       return (

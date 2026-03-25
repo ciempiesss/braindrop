@@ -18,7 +18,7 @@ export interface QuizQuestion {
   options: string[];
   correctIndex: number;
   explanation: string;
-  example: string;
+  example?: string;
   dropId: string;
 }
 
