@@ -23,6 +23,8 @@ interface BrainDropContextType {
   toggleLike: (id: string) => void;
   markAsViewed: (id: string) => void;
   streak: Streak;
+  isUserDrop: (id: string) => boolean;
+  seedIds: Set<string>;
 }
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
@@ -124,6 +126,9 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   }, [drops, collections]);
 
   const streak = useMemo(() => loadStreak(), [drops]);
+
+  const seedIdsSet = useMemo(() => new Set(SAMPLE_DROPS.map(sd => sd.id)), []);
+  const isUserDrop = useCallback((id: string) => !seedIdsSet.has(id), [seedIdsSet]);
 
   // Persist on change
   useEffect(() => {
@@ -278,6 +283,8 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
         toggleLike,
         markAsViewed,
         streak,
+        isUserDrop,
+        seedIds: seedIdsSet,
       }}
     >
       {children}

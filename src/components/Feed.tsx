@@ -35,9 +35,11 @@ export function Feed({
   selectedTag?: string | null;
   onClearTagFilter?: () => void;
 }) {
-  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop } = useBrainDrop();
+  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop, reviewDrop, seedIds } = useBrainDrop();
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
+  const [showQuickCapture, setShowQuickCapture] = useState(false);
+  const [quickText, setQuickText] = useState('');
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [refreshToast, setRefreshToast] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function Feed({
   // Función imperativa para reconstruir el pool
   const rebuildPool = useCallback((dropsSnapshot: Drop[], tag?: string | null) => {
     const vc = loadVisibleCollections();
-    const pool = buildSessionPool(dropsSnapshot, Date.now(), tag, vc);
+    const pool = buildSessionPool(dropsSnapshot, Date.now(), tag, vc, seedIds);
     poolIdsRef.current = pool.map(d => d.id);
     setSessionPage(1);
     setPoolVersion(v => v + 1);
@@ -80,12 +82,15 @@ export function Feed({
         .filter(d => d.liked)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
-    // recientes
+    // recientes — solo últimos 7 días
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const vc = loadVisibleCollections();
     if (vc.length > 0) {
       filtered = filtered.filter(d => d.collectionId && vc.includes(d.collectionId));
     }
-    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return filtered
+      .filter(d => new Date(d.createdAt) >= sevenDaysAgo)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [drops, activeTab, selectedTag]);
 
   const displayedDrops = useMemo(() => {
@@ -117,6 +122,25 @@ export function Feed({
       setIsLoadingMore(false);
     }, 300);
   }, []);
+
+  const handleAddDrop = useCallback((drop: Parameters<typeof addDrop>[0]) => {
+    addDrop(drop);
+    setRefreshToast('✓ Drop guardado');
+    setTimeout(() => setRefreshToast(null), 2500);
+  }, [addDrop]);
+
+  const handleQuickCapture = useCallback(() => {
+    const text = quickText.trim();
+    if (!text) return;
+    const lines = text.split('\n');
+    const title = lines[0].slice(0, 200);
+    const content = lines.slice(1).join('\n').trim() || title;
+    addDrop({ title, content, type: 'operativo', tags: [] });
+    setRefreshToast('✓ Drop guardado');
+    setTimeout(() => setRefreshToast(null), 2500);
+    setQuickText('');
+    setShowQuickCapture(false);
+  }, [quickText, addDrop]);
 
   const handleNewSession = useCallback(() => {
     rebuildPool(drops, selectedTag);
@@ -183,29 +207,79 @@ export function Feed({
         </div>
 
         <div className="px-5 flex gap-1 overflow-x-auto scrollbar-hide">
-          {['Para ti', 'Recientes', 'Favoritos'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
-              className={cn(
-                'px-5 py-3 text-[15px] font-semibold transition-all whitespace-nowrap',
-                activeTab === tab.toLowerCase().replace(' ', '-')
-                  ? 'text-[#e7e9ea] border-b-[3px] border-[#7c3aed]'
-                  : 'text-[#71767b] hover:bg-[#181818] hover:text-[#e7e9ea] rounded-lg'
-              )}
-            >
-              {tab}
-            </button>
-          ))}
+          {['Para ti', 'Recientes', 'Favoritos'].map((tab) => {
+            const tabId = tab.toLowerCase().replace(' ', '-');
+            const recentCount = tabId === 'recientes'
+              ? drops.filter(d => new Date(d.createdAt) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length
+              : 0;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tabId)}
+                className={cn(
+                  'px-5 py-3 text-[15px] font-semibold transition-all whitespace-nowrap flex items-center gap-1.5',
+                  activeTab === tabId
+                    ? 'text-[#e7e9ea] border-b-[3px] border-[#7c3aed]'
+                    : 'text-[#71767b] hover:bg-[#181818] hover:text-[#e7e9ea] rounded-lg'
+                )}
+              >
+                {tab}
+                {recentCount > 0 && (
+                  <span className="text-[11px] bg-[#7c3aed]/20 text-[#a78bfa] px-1.5 py-0.5 rounded-full font-bold">
+                    {recentCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </header>
 
       {/* Compose — solo desktop */}
       <div className="hidden lg:block">
-        <Compose onSubmit={addDrop} />
+        <Compose onSubmit={handleAddDrop} />
       </div>
 
-      {/* Compose modal móvil */}
+      {/* Quick Capture bottom sheet — móvil */}
+      {showQuickCapture && (
+        <div
+          className="lg:hidden fixed inset-0 z-50"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQuickCapture(false); }}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute bottom-0 left-0 right-0 bg-[#12121a] border-t border-[#2f3336] rounded-t-2xl p-5 pb-8"
+            style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.6)' }}
+          >
+            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-4" />
+            <textarea
+              autoFocus
+              value={quickText}
+              onChange={(e) => setQuickText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleQuickCapture(); }}
+              placeholder="¿Qué capturo? Primera línea = título..."
+              rows={4}
+              className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-[#e7e9ea] text-[15px] placeholder:text-white/25 focus:outline-none focus:border-[#7c3aed]/60 resize-none mb-3"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowQuickCapture(false); setShowCompose(true); }}
+                className="flex-1 py-2.5 text-[13px] text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-xl"
+              >
+                Más opciones ↓
+              </button>
+              <button
+                onClick={handleQuickCapture}
+                disabled={!quickText.trim()}
+                className="flex-1 py-2.5 text-[13px] font-bold rounded-xl transition-all bg-[#7c3aed] text-white hover:bg-[#6d28d9] disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Drop →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Compose modal — abierto desde "Más opciones" */}
       {showCompose && (
         <div className="lg:hidden fixed inset-0 z-50 bg-[#0a0a0a]">
           <div className="flex items-center justify-between p-4 border-b border-[#2f3336]">
@@ -216,7 +290,7 @@ export function Feed({
           </div>
           <Compose
             onSubmit={(drop) => {
-              addDrop(drop);
+              handleAddDrop(drop);
               setShowCompose(false);
             }}
           />
@@ -246,6 +320,12 @@ export function Feed({
                 <p>Aún no tienes favoritos</p>
                 <p className="text-sm mt-1">Dale like a un drop para guardarlo aquí</p>
               </>
+            ) : activeTab === 'recientes' ? (
+              <>
+                <p className="text-2xl mb-2">📅</p>
+                <p className="font-semibold text-[#e7e9ea]">Sin drops esta semana</p>
+                <p className="text-sm mt-1">Los drops que agregues aparecerán aquí durante 7 días</p>
+              </>
             ) : (
               <p>No hay drops todavía</p>
             )}
@@ -261,6 +341,7 @@ export function Feed({
                 onMarkViewed={markAsViewed}
                 onDelete={deleteDrop}
                 onEdit={(updatedDrop) => updateDrop(updatedDrop.id, updatedDrop)}
+                onReview={reviewDrop}
               />
             ))}
           </div>
@@ -311,8 +392,9 @@ export function Feed({
 
       {/* FAB móvil */}
       <button
-        onClick={() => setShowCompose(true)}
-        className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-[#7c3aed] rounded-full flex items-center justify-center text-2xl shadow-lg hover:bg-[#6d28d9] transition-colors z-30"
+        onClick={() => { setQuickText(''); setShowQuickCapture(true); }}
+        className="lg:hidden fixed bottom-24 right-4 w-14 h-14 bg-[#7c3aed] rounded-full flex items-center justify-center text-2xl font-bold shadow-lg hover:bg-[#6d28d9] transition-all active:scale-95 z-30"
+        style={{ boxShadow: '0 4px 20px rgba(124,58,237,0.5)' }}
       >
         +
       </button>

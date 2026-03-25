@@ -55,7 +55,8 @@ export function buildSessionPool(
   drops: Drop[],
   seed: number,
   selectedTag?: string | null,
-  visibleCollections?: string[]
+  visibleCollections?: string[],
+  seedIds?: Set<string>
 ): Drop[] {
   const now = new Date();
 
@@ -68,17 +69,29 @@ export function buildSessionPool(
     pool = pool.filter(d => d.collectionId && visibleCollections.includes(d.collectionId));
   }
 
+  const isUserDrop = (d: Drop) => seedIds ? !seedIds.has(d.id) : false;
+
   // Bucket A: no vistos nunca
-  const bucketA = seededShuffle(
-    pool.filter(d => d.viewed !== true),
-    seed
-  );
+  // User-created drops get boosted to front (max 3)
+  const bucketA_all = pool.filter(d => d.viewed !== true);
+  const bucketA_user = seededShuffle(bucketA_all.filter(d => isUserDrop(d)), seed).slice(0, 3);
+  const userBoostIds = new Set(bucketA_user.map(d => d.id));
+  const bucketA_rest = seededShuffle(bucketA_all.filter(d => !userBoostIds.has(d.id)), seed);
+  const bucketA = [...bucketA_user, ...bucketA_rest];
 
   // Bucket B: por repasar según SM-2 (due date pasada)
-  const bucketB = seededShuffle(
-    pool.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now),
+  // Sub-buckets: urgent (relearn or hard learner) vs normal
+  const bucketB_all = pool.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now);
+  const bucketB_urgent = seededShuffle(
+    bucketB_all.filter(d => d.status === 'relearn' || d.easeFactor < 1.8),
     seed + 1
   );
+  const bucketB_normal = seededShuffle(
+    bucketB_all.filter(d => d.status !== 'relearn' && d.easeFactor >= 1.8),
+    seed + 1
+  );
+  // Urgent drops come first within bucket B
+  const bucketB = [...bucketB_urgent, ...bucketB_normal];
 
   // Bucket C: liked pero no urgentes
   const bucketAIds = new Set(bucketA.map(d => d.id));
@@ -103,16 +116,17 @@ export function buildSessionPool(
   );
 
   // Llenar hasta MAX_SESSION redistribuyendo slots sobrantes
-  // Prioridad: A (nuevos) > B (repasar) > C (liked) > D (comodín)
-  const buckets = [bucketA, bucketB, bucketC, bucketD];
+  // Prioridad: A (nuevos) > B_urgent > B_normal > C (liked) > D (comodín)
+  const buckets = [bucketA, bucketB_urgent, bucketB_normal, bucketC, bucketD];
   const targets = [
-    Math.round(MAX_SESSION * 0.3),  // 12 ideales para A
-    Math.round(MAX_SESSION * 0.4),  // 16 ideales para B
-    Math.round(MAX_SESSION * 0.2),  // 8 ideales para C
-    MAX_SESSION - Math.round(MAX_SESSION * 0.3) - Math.round(MAX_SESSION * 0.4) - Math.round(MAX_SESSION * 0.2), // 4 para D
+    Math.round(MAX_SESSION * 0.3),   // 12 para A (nuevos)
+    Math.round(MAX_SESSION * 0.2),   // 8 para B_urgent (relearn/difíciles)
+    Math.round(MAX_SESSION * 0.2),   // 8 para B_normal (due normal)
+    Math.round(MAX_SESSION * 0.2),   // 8 para C (liked)
+    MAX_SESSION - Math.round(MAX_SESSION * 0.3) - Math.round(MAX_SESSION * 0.2) - Math.round(MAX_SESSION * 0.2) - Math.round(MAX_SESSION * 0.2), // 4 para D
   ];
 
-  const taken: Drop[][] = [[], [], [], []];
+  const taken: Drop[][] = [[], [], [], [], []];
   let remaining = MAX_SESSION;
 
   // Primera pasada: tomar hasta el target de cada bucket

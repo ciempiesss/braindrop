@@ -15,17 +15,19 @@ const TYPE_FILTERS: { value: DropType | 'all'; label: string }[] = [
 ];
 
 export function Explore() {
-  const { drops, collections, searchDrops, toggleLike, markAsViewed, deleteDrop, updateDrop } = useBrainDrop();
+  const { drops, collections, searchDrops, toggleLike, markAsViewed, deleteDrop, updateDrop, isUserDrop } = useBrainDrop();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<DropType | 'all'>('all');
   const [collectionFilter, setCollectionFilter] = useState<string>('all');
+  const [originFilter, setOriginFilter] = useState<'all' | 'mine'>('all');
 
   const results = useMemo(() => {
     let base = query.trim() ? searchDrops(query) : [...drops];
     if (typeFilter !== 'all') base = base.filter(d => d.type === typeFilter);
     if (collectionFilter !== 'all') base = base.filter(d => d.collectionId === collectionFilter);
+    if (originFilter === 'mine') base = base.filter(d => isUserDrop(d.id));
     return base;
-  }, [query, typeFilter, collectionFilter, drops, searchDrops]);
+  }, [query, typeFilter, collectionFilter, originFilter, drops, searchDrops, isUserDrop]);
 
   return (
     <div className="flex flex-col bg-[#0a0a0a] min-h-screen">
@@ -70,6 +72,17 @@ export function Explore() {
         </div>
 
         <div className="px-5 pb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setOriginFilter(originFilter === 'mine' ? 'all' : 'mine')}
+            className={cn(
+              'px-3 py-1.5 rounded-full text-[13px] whitespace-nowrap font-medium transition-all border',
+              originFilter === 'mine'
+                ? 'border-white/30 bg-white/10 text-white'
+                : 'border-[#2f3336] text-[#71767b] hover:border-white/20'
+            )}
+          >
+            ✍️ Mis drops
+          </button>
           <button
             onClick={() => setCollectionFilter('all')}
             className={cn(

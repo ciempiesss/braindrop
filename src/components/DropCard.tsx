@@ -8,6 +8,7 @@ import DOMPurify from 'dompurify';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
+import { SAMPLE_DROPS } from '@/data/seed';
 import { editDropWithAI } from '@/lib/groq';
 
 interface DropCardProps {
@@ -17,6 +18,7 @@ interface DropCardProps {
   onMarkViewed?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (drop: Drop) => void;
+  onReview?: (id: string, quality: number) => void;
 }
 
 const STORAGE_KEY = 'braindrop_settings';
@@ -223,11 +225,25 @@ const ComparisonVisual = ({ data }: { data: VisualData }) => {
 
 // ============= MAIN CARD =============
 
-export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
+const SEED_IDS = new Set(SAMPLE_DROPS.map(d => d.id));
+
+function getMasteryRing(drop: Drop): string {
+  // No ring for drops never reviewed
+  if (!drop.viewed || drop.repetitionCount === 0) return 'none';
+  const { interval, easeFactor, status } = drop;
+  if (status === 'relearn') return '0 0 0 2px rgba(239,68,68,0.4)'; // red — struggling
+  if (interval >= 21 && easeFactor > 2.5) return '0 0 0 2.5px rgba(52,211,153,0.55)'; // green — mastered
+  if (interval >= 7) return '0 0 0 2px rgba(124,58,237,0.45)'; // purple — consolidating
+  return '0 0 0 1.5px rgba(255,255,255,0.12)'; // subtle — learning
+}
+
+export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit, onReview }: DropCardProps) {
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const { toggleLike: contextToggleLike } = useBrainDrop();
+  const isUserCreated = !SEED_IDS.has(drop.id);
   const [showEditModal, setShowEditModal] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [reviewDone, setReviewDone] = useState<'easy' | 'hard' | null>(null);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [editForm, setEditForm] = useState({
     title: drop.title,
@@ -305,12 +321,18 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           )}
           style={{
             background: `linear-gradient(135deg, ${styles.gradient})`,
-            backdropFilter: 'blur(10px)'
+            backdropFilter: 'blur(10px)',
+            boxShadow: getMasteryRing(drop),
           }}
         >
           <span className="mr-1">{styles.icon}</span>
           {config.label}
         </span>
+        {isUserCreated && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/30 font-medium">
+            tuyo
+          </span>
+        )}
         {drop.tags.length > 0 && (
           <div className="flex gap-1 flex-wrap">
             {drop.tags.slice(0, 3).map((tag, i) => {
@@ -392,6 +414,32 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
       {drop.codeSnippet && !drop.visualData && (
         <div className="mt-3 rounded-xl overflow-hidden">
           <CodeVisual code={drop.codeSnippet} />
+        </div>
+      )}
+
+      {/* Review buttons — solo si el drop ya fue visto y se pasa onReview */}
+      {onReview && drop.viewed && (
+        <div className="mt-3 mb-1">
+          {reviewDone ? (
+            <p className="text-[11px] text-white/30 text-center">
+              {reviewDone === 'easy' ? '✓ Espaciado al siguiente nivel' : '✓ Vuelve pronto a repasarlo'}
+            </p>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { onReview(drop.id, 2); setReviewDone('hard'); }}
+                className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-red-500/20 text-red-400/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5"
+              >
+                {drop.status === 'relearn' ? '😬 Sigo sin entenderlo' : '😬 Difícil'}
+              </button>
+              <button
+                onClick={() => { onReview(drop.id, 4); setReviewDone('easy'); }}
+                className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-emerald-500/20 text-emerald-400/70 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
+              >
+                {drop.status === 'relearn' ? '😌 Ya lo entendí' : drop.easeFactor > 2.8 ? '😌 Muy fácil' : '😌 Fácil'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
