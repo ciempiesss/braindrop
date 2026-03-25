@@ -241,9 +241,10 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const { toggleLike: contextToggleLike } = useBrainDrop();
   const isUserCreated = !SEED_IDS.has(drop.id);
+  const [cardExpanded, setCardExpanded] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [reviewDone, setReviewDone] = useState<'easy' | 'hard' | null>(null);
+  const [showQuickReview, setShowQuickReview] = useState(false);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [editForm, setEditForm] = useState({
     title: drop.title,
@@ -257,6 +258,16 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [aiError, setAiError] = useState('');
 
   const handleToggleLike = onToggleLike || contextToggleLike;
+
+  // Long-press for quick review
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handlePressStart = useCallback(() => {
+    if (!onReview || !drop.viewed || reviewDone) return;
+    longPressTimer.current = setTimeout(() => setShowQuickReview(true), 500);
+  }, [onReview, drop.viewed, reviewDone]);
+  const handlePressEnd = useCallback(() => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  }, []);
 
   const cardRef = useRef<HTMLElement>(null);
   const handleViewed = useCallback(() => {
@@ -275,6 +286,11 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const config = DROP_TYPE_CONFIG[drop.type];
   const styles = typeStyles[drop.type];
   const hasVisual = drop.visualContent || drop.visualData;
+
+  // Fix F — líneas visibles en collapsed según tipo
+  const collapsedLines = drop.type === 'definition' ? 1
+    : drop.type === 'ruptura' ? 3
+    : 2;
 
   const renderVisual = () => {
     if (drop.visualContent && !drop.visualData) {
@@ -302,18 +318,49 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   return (
     <article
       ref={cardRef}
+      onClick={() => !cardExpanded && setCardExpanded(true)}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
+      onTouchCancel={handlePressEnd}
       className={cn(
-        "px-5 py-5 border-b border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer w-full",
+        "px-5 py-4 border-b border-white/5 transition-all w-full select-none",
+        !cardExpanded && "hover:bg-white/[0.015] cursor-pointer",
         styles.cardBorder,
         styles.cardAccent
       )}
       style={{
         background: 'linear-gradient(145deg, #0f0f14 0%, #0a0a0f 100%)',
-        boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset'
+        boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset',
+        position: 'relative',
       }}
     >
-      {/* Header: badge + tags — compact row */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Quick review overlay — long press */}
+      {showQuickReview && (
+        <div
+          className="absolute inset-0 rounded-xl flex items-center justify-center gap-6 z-10"
+          style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { e.stopPropagation(); setShowQuickReview(false); }}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); onReview!(drop.id, 2); setReviewDone('hard'); setShowQuickReview(false); }}
+            className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/40 text-3xl flex items-center justify-center active:scale-95 transition-transform"
+          >
+            😬
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onReview!(drop.id, 4); setReviewDone('easy'); setShowQuickReview(false); }}
+            className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-3xl flex items-center justify-center active:scale-95 transition-transform"
+          >
+            😌
+          </button>
+        </div>
+      )}
+
+      {/* Header: badge — siempre visible. Tags + mastery solo en expanded */}
+      <div className="flex items-center gap-2 mb-3">
         <span
           className={cn(
             'px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all',
@@ -322,18 +369,19 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           style={{
             background: `linear-gradient(135deg, ${styles.gradient})`,
             backdropFilter: 'blur(10px)',
-            boxShadow: getMasteryRing(drop),
+            boxShadow: cardExpanded ? getMasteryRing(drop) : 'none',
           }}
         >
           <span className="mr-1">{styles.icon}</span>
           {config.label}
         </span>
-        {isUserCreated && (
+        {/* Origin + tags — solo expanded */}
+        {cardExpanded && isUserCreated && (
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/30 font-medium">
             tuyo
           </span>
         )}
-        {drop.tags.length > 0 && (
+        {cardExpanded && drop.tags.length > 0 && (
           <div className="flex gap-1 flex-wrap">
             {drop.tags.slice(0, 3).map((tag, i) => {
               const hue = tagHue(tag);
@@ -352,13 +400,19 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
             })}
           </div>
         )}
+        {/* Reviewed indicator — collapsed only */}
+        {!cardExpanded && reviewDone && (
+          <span className="ml-auto text-[10px] text-white/20">
+            {reviewDone === 'easy' ? '✓' : '↺'}
+          </span>
+        )}
       </div>
 
-      {/* Title — tighter tracking, generous size */}
+      {/* Title — siempre visible */}
       <h3
-        className="font-extrabold mb-3 text-[#e7e9ea]"
+        className="font-extrabold mb-2 text-[#e7e9ea]"
         style={{
-          fontSize: `calc(20px * ${fontScale})`,
+          fontSize: `calc(${cardExpanded ? 20 : 18}px * ${fontScale})`,
           lineHeight: '1.3',
           letterSpacing: '-0.015em',
         }}
@@ -366,118 +420,138 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         {drop.title}
       </h3>
 
-      {/* Content — readable line-height, first sentence highlighted */}
+      {/* Content — collapsed: N líneas según tipo. Expanded: full */}
       {(() => {
         const rendered = renderInlineMarkdown(drop.content);
         const sanitized = DOMPurify.sanitize(rendered);
-        const isLong = drop.content.length > 280;
         return (
-          <div className="mb-3">
-            <div
-              className={cn(
-                "text-white/50",
-                isLong && !expanded && "line-clamp-4"
-              )}
-              style={{
-                fontSize: `calc(15.5px * ${fontScale})`,
-                lineHeight: '1.75',
-                wordSpacing: '0.02em',
-              }}
-              dangerouslySetInnerHTML={{ __html: sanitized }}
-            />
-            {isLong && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="text-[12px] text-purple-400/80 hover:text-purple-300 mt-1.5 transition-colors font-medium"
-              >
-                {expanded ? '← Menos' : 'Ver más →'}
-              </button>
+          <div
+            className={cn(
+              "text-white/50",
+              !cardExpanded && `line-clamp-${collapsedLines}`
             )}
-          </div>
+            style={{
+              fontSize: `calc(${cardExpanded ? 15.5 : 14.5}px * ${fontScale})`,
+              lineHeight: cardExpanded ? '1.75' : '1.6',
+              wordSpacing: '0.02em',
+            }}
+            dangerouslySetInnerHTML={{ __html: sanitized }}
+          />
         );
       })()}
 
-      {/* Visual */}
-      {hasVisual && (
-        <div 
-          className="mt-3 rounded-xl p-4"
-          style={{
-            background: 'linear-gradient(145deg, rgba(124, 58, 237, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%)',
-            border: '1px solid rgba(124, 58, 237, 0.15)'
-          }}
-        >
-          {renderVisual()}
+      {/* Fix F — Collapsed inline extras por tipo */}
+      {!cardExpanded && drop.type === 'operativo' && drop.content.includes('\n') && (
+        <div className="flex flex-col gap-0.5 mt-1.5">
+          {drop.content.split('\n').filter(Boolean).slice(0, 2).map((line, i) => (
+            <span key={i} className="text-[12px] text-amber-400/50 flex items-start gap-1.5">
+              <span className="text-[10px] mt-0.5 opacity-40">{i + 1}.</span>
+              {line.trim()}
+            </span>
+          ))}
+        </div>
+      )}
+      {!cardExpanded && drop.type === 'code' && drop.codeSnippet && (
+        <div className="mt-1.5 px-3 py-1.5 rounded-lg bg-black/40 font-mono text-[11px] text-violet-400/60 line-clamp-2">
+          {drop.codeSnippet.split('\n').slice(0, 2).join('\n')}
         </div>
       )}
 
-      {/* Code snippet (legacy) */}
-      {drop.codeSnippet && !drop.visualData && (
-        <div className="mt-3 rounded-xl overflow-hidden">
-          <CodeVisual code={drop.codeSnippet} />
-        </div>
-      )}
-
-      {/* Review buttons — solo si el drop ya fue visto y se pasa onReview */}
-      {onReview && drop.viewed && (
-        <div className="mt-3 mb-1">
-          {reviewDone ? (
-            <p className="text-[11px] text-white/30 text-center">
-              {reviewDone === 'easy' ? '✓ Espaciado al siguiente nivel' : '✓ Vuelve pronto a repasarlo'}
-            </p>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={() => { onReview(drop.id, 2); setReviewDone('hard'); }}
-                className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-red-500/20 text-red-400/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5"
-              >
-                {drop.status === 'relearn' ? '😬 Sigo sin entenderlo' : '😬 Difícil'}
-              </button>
-              <button
-                onClick={() => { onReview(drop.id, 4); setReviewDone('easy'); }}
-                className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-emerald-500/20 text-emerald-400/70 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
-              >
-                {drop.status === 'relearn' ? '😌 Ya lo entendí' : drop.easeFactor > 2.8 ? '😌 Muy fácil' : '😌 Fácil'}
-              </button>
+      {/* Expanded content */}
+      {cardExpanded && (
+        <>
+          {/* Visual */}
+          {hasVisual && (
+            <div
+              className="mt-3 rounded-xl p-4"
+              style={{
+                background: 'linear-gradient(145deg, rgba(124, 58, 237, 0.08) 0%, rgba(37, 99, 235, 0.04) 100%)',
+                border: '1px solid rgba(124, 58, 237, 0.15)'
+              }}
+            >
+              {renderVisual()}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Actions — low visual weight, doesn't compete with content */}
-      <div className="flex items-center gap-3 mt-4 pt-2.5 border-t border-white/[0.04]">
-        <button
-          onClick={() => {
-            if (confirm('¿Estás seguro de que quieres eliminar este drop?')) {
-              onDelete?.(drop.id);
-            }
-          }}
-          className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
-        >
-          🗑️
-        </button>
-        <button
-          onClick={() => setShowEditModal(true)}
-          className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px]"
-        >
-          ✏️
-        </button>
-        <button
-          onClick={() => handleToggleLike(drop.id)}
-          className={cn(
-            "transition-colors text-[11px]",
-            drop.liked ? "text-rose-400" : "text-white/25 hover:text-rose-400"
+          {/* Code snippet */}
+          {drop.codeSnippet && !drop.visualData && (
+            <div className="mt-3 rounded-xl overflow-hidden">
+              <CodeVisual code={drop.codeSnippet} />
+            </div>
           )}
-        >
-          {drop.liked ? '❤️' : '🤍'}
-        </button>
-        <button
-          onClick={onAI}
-          className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px] ml-auto"
-        >
-          🤖 IA
-        </button>
-        <span className="text-white/15 text-[10px]">{formatRelativeDate(drop.createdAt)}</span>
-      </div>
+
+          {/* Review buttons — en expanded, si fue visto */}
+          {onReview && drop.viewed && (
+            <div className="mt-3 mb-1">
+              {reviewDone ? (
+                <p className="text-[11px] text-white/30 text-center">
+                  {reviewDone === 'easy' ? '✓ Espaciado al siguiente nivel' : '✓ Vuelve pronto a repasarlo'}
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onReview(drop.id, 2); setReviewDone('hard'); }}
+                    className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-red-500/20 text-red-400/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5"
+                  >
+                    {drop.status === 'relearn' ? '😬 Sigo sin entenderlo' : '😬 Difícil'}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onReview(drop.id, 4); setReviewDone('easy'); }}
+                    className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-emerald-500/20 text-emerald-400/70 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
+                  >
+                    {drop.status === 'relearn' ? '😌 Ya lo entendí' : drop.easeFactor > 2.8 ? '😌 Muy fácil' : '😌 Fácil'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action bar */}
+          <div className="flex items-center gap-3 mt-4 pt-2.5 border-t border-white/[0.04]">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm('¿Estás seguro de que quieres eliminar este drop?')) {
+                  onDelete?.(drop.id);
+                }
+              }}
+              className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
+            >
+              🗑️
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowEditModal(true); }}
+              className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px]"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleToggleLike(drop.id); }}
+              className={cn(
+                "transition-colors text-[11px]",
+                drop.liked ? "text-rose-400" : "text-white/25 hover:text-rose-400"
+              )}
+            >
+              {drop.liked ? '❤️' : '🤍'}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAI?.(); }}
+              className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px]"
+            >
+              🤖 IA
+            </button>
+            <span className="text-white/15 text-[10px] ml-auto">{formatRelativeDate(drop.createdAt)}</span>
+          </div>
+
+          {/* Cerrar */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setCardExpanded(false); }}
+            className="w-full mt-3 text-[11px] text-white/20 hover:text-white/40 transition-colors text-center"
+          >
+            ↑ Cerrar
+          </button>
+        </>
+      )}
 
       {/* Edit Modal */}
       {showEditModal && (

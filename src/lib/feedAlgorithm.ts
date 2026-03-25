@@ -20,6 +20,28 @@ export function seededShuffle<T>(array: T[], seed: number): T[] {
   return arr;
 }
 
+// ─── Interleave proporcional de buckets ──────────────────────────────────────
+
+function interleaveBuckets(buckets: Drop[][]): Drop[] {
+  const result: Drop[] = [];
+  const indices = buckets.map(() => 0);
+  const weights = [3, 2, 2, 2, 1]; // A, B_urgent, B_normal, C, D
+  const total = buckets.reduce((s, b) => s + b.length, 0);
+
+  while (result.length < total) {
+    let added = 0;
+    for (let i = 0; i < buckets.length; i++) {
+      const count = Math.min(weights[i], buckets[i].length - indices[i]);
+      for (let j = 0; j < count; j++) {
+        result.push(buckets[i][indices[i]++]);
+        added++;
+      }
+    }
+    if (added === 0) break;
+  }
+  return result;
+}
+
 // ─── Diversidad de tipo (no más de 3 del mismo tipo consecutivos) ─────────────
 
 function diversify(drops: Drop[]): Drop[] {
@@ -149,7 +171,7 @@ export function buildSessionPool(
     }
   }
 
-  const selected = taken.flat();
+  const selected = interleaveBuckets(taken);
   return diversify(selected);
 }
 

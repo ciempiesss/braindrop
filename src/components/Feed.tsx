@@ -41,7 +41,6 @@ export function Feed({
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [quickText, setQuickText] = useState('');
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [refreshToast, setRefreshToast] = useState<string | null>(null);
 
   // ── Pool congelado — solo IDs, en ref para evitar re-renders ────────────
@@ -63,6 +62,41 @@ export function Feed({
     rebuildPool(drops, selectedTag);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Sentinel para scroll continuo ────────────────────────────────────────
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Auto-load más al llegar al sentinel
+  useEffect(() => {
+    if (!canLoadMore) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setSessionPage(prev => prev + 1);
+      },
+      { threshold: 0.1 }
+    );
+    if (sentinelRef.current) observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canLoadMore, sessionPage]);
+
+  // Auto-rebuild al llegar al final de la sesión
+  useEffect(() => {
+    if (isSessionExhausted && activeTab === 'para-ti') {
+      rebuildPool(drops, selectedTag);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSessionExhausted]);
+
+  // ── Counter de drops vistos hoy ───────────────────────────────────────────
+  const dropsViewedToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return drops.filter(d =>
+      d.viewed &&
+      d.lastReviewDate &&
+      new Date(d.lastReviewDate).toDateString() === today
+    ).length;
+  }, [drops]);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const touchStartY = useRef(0);
@@ -115,13 +149,6 @@ export function Feed({
   const isSessionExhausted = activeTab === 'para-ti' && displayedDrops.length > 0 && !hasMoreInSession;
 
   // ── Handlers de sesión ────────────────────────────────────────────────────
-  const handleLoadMore = useCallback(() => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setSessionPage(prev => prev + 1);
-      setIsLoadingMore(false);
-    }, 300);
-  }, []);
 
   const handleAddDrop = useCallback((drop: Parameters<typeof addDrop>[0]) => {
     addDrop(drop);
@@ -202,8 +229,13 @@ export function Feed({
             </button>
           </div>
         )}
-        <div className="p-4 px-5">
+        <div className="p-4 px-5 flex items-center justify-between">
           <h1 className="text-[22px] font-extrabold text-[#e7e9ea]">Tu Feed de Aprendizaje</h1>
+          {dropsViewedToday > 0 && (
+            <span className="text-[12px] text-white/20 font-mono tabular-nums">
+              {dropsViewedToday} hoy
+            </span>
+          )}
         </div>
 
         <div className="px-5 flex gap-1 overflow-x-auto scrollbar-hide">
@@ -347,46 +379,9 @@ export function Feed({
           </div>
         )}
 
-        {/* Fin de sesión — solo en "Para Ti" */}
-        {activeTab === 'para-ti' && displayedDrops.length > 0 && (
-          <div className="flex flex-col items-center gap-3 px-8 py-10 border-t border-[#2f3336]">
-            {sessionStats && (
-              <p className="text-[#71767b] text-sm text-center">
-                {sessionStats.unseen > 0 && sessionStats.dueForReview > 0
-                  ? `${sessionStats.unseen} nuevos · ${sessionStats.dueForReview} por repasar`
-                  : sessionStats.unseen > 0
-                  ? `${sessionStats.unseen} drops nuevos pendientes`
-                  : sessionStats.dueForReview > 0
-                  ? `${sessionStats.dueForReview} por repasar hoy`
-                  : 'Al día con todo 🎯'}
-              </p>
-            )}
-
-            {isLoadingMore && (
-              <div className="flex items-center gap-2 text-[#71767b]">
-                <div className="w-4 h-4 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Cargando...</span>
-              </div>
-            )}
-
-            {!isLoadingMore && canLoadMore && (
-              <button
-                onClick={handleLoadMore}
-                className="px-6 py-2.5 rounded-full bg-[#7c3aed]/20 border border-[#7c3aed]/40 text-[#a78bfa] text-sm font-semibold hover:bg-[#7c3aed]/30 transition-colors"
-              >
-                Cargar más →
-              </button>
-            )}
-
-            {!isLoadingMore && isSessionExhausted && (
-              <button
-                onClick={handleNewSession}
-                className="px-6 py-2.5 rounded-full bg-[#7c3aed] text-white text-sm font-semibold hover:bg-[#6d28d9] transition-colors"
-              >
-                Nueva sesión ↺
-              </button>
-            )}
-          </div>
+        {/* Sentinel para scroll continuo automático */}
+        {activeTab === 'para-ti' && canLoadMore && (
+          <div ref={sentinelRef} className="h-8" />
         )}
       </div>
 
