@@ -61,7 +61,7 @@ export function Collections() {
               <p>No hay drops en esta colección aún</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 p-4">
+            <div className="flex flex-col">
               {collectionDrops.map((drop) => (
                 <DropCard
                   key={drop.id}

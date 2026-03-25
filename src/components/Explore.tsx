@@ -124,7 +124,7 @@ export function Explore() {
         ) : (
           <>
             <p className="text-[13px] text-[#71767b] mb-3">{results.length} drop{results.length !== 1 ? 's' : ''}</p>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col">
               {results.map(drop => (
                 <DropCard
                   key={drop.id}

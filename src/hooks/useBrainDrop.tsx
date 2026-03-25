@@ -182,7 +182,7 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
 
   const dropsForReview = useMemo(() => {
     const now = new Date();
-    return drops.filter((drop) => new Date(drop.nextReviewDate) <= now);
+    return drops.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now);
   }, [drops]);
 
   const getDropsForReview: BrainDropContextType['getDropsForReview'] = () => {

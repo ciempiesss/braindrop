@@ -91,11 +91,10 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
 
     const generateQuestionsPreGenerated = () => {
       const questions: QuizQuestion[] = quizDrops.map((drop) => {
-        const basic = generateQuizQuestion(drop);
+        const basic = generateQuizQuestion(drop, drops);
         return {
           ...basic,
           explanation: drop.content.substring(0, 200),
-          example: 'Aplicación práctica del concepto en tu trabajo.',
           dropId: drop.id,
         };
       });
@@ -135,15 +134,17 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
   };
 
   const handleNext = () => {
+    if (!quizQuestions.length) return;
     setShowAnswer(false);
     setSelectedOption(null);
     setShowExplanation(false);
 
-    if (currentIndex + 1 >= quizQuestions.length) {
+    const nextIdx = currentIndex + 1;
+    if (nextIdx >= quizQuestions.length) {
       setCompleted(true);
     } else {
-      setCurrentIndex((i) => i + 1);
-      setCurrentQuestion(quizQuestions[currentIndex + 1]);
+      setCurrentIndex(nextIdx);
+      setCurrentQuestion(quizQuestions[nextIdx]);
     }
   };
 
@@ -173,7 +174,6 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
     setShowChat(true);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sendChatMessage = async () => {
     if (!chatInput.trim() || !currentDrop || isChatLoading) return;
 
@@ -360,7 +360,7 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
                   <p className="text-sm text-[#71767b] mb-2">Respuesta:</p>
                   <p className="text-[#e7e9ea] leading-relaxed mb-4">{currentDrop?.content}</p>
 
-                  {currentQuestion.example && (
+                  {currentQuestion.example && currentQuestion.example !== 'Aplicación práctica del concepto en tu trabajo.' && (
                     <div className="bg-[#7c3aed]/10 rounded-lg p-3 mb-4">
                       <p className="text-xs text-[#7c3aed] mb-1">Ejemplo:</p>
                       <p className="text-sm text-[#e7e9ea]">{currentQuestion.example}</p>
@@ -372,11 +372,13 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
 
             {showExplanation ? (
               <div className="space-y-3 mt-4">
-                <div className="bg-[#181818] rounded-xl p-4">
-                  <p className="text-sm text-[#71767b] mb-2">Explicación:</p>
-                  <p className="text-[#e7e9ea] text-sm">{currentQuestion.explanation}</p>
-                </div>
-                
+                {useIAMode && currentQuestion.explanation && (
+                  <div className="bg-[#181818] rounded-xl p-4">
+                    <p className="text-sm text-[#71767b] mb-2">Explicación:</p>
+                    <p className="text-[#e7e9ea] text-sm">{currentQuestion.explanation}</p>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button
                     onClick={initChat}
@@ -446,10 +448,12 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
 
               {showExplanation && (
                 <div className="space-y-3 mt-4">
-                  <div className="bg-[#181818] rounded-xl p-4">
-                    <p className="text-sm text-[#71767b] mb-2">Explicación:</p>
-                    <p className="text-[#e7e9ea] text-sm">{currentQuestion.explanation}</p>
-                  </div>
+                  {useIAMode && currentQuestion.explanation && (
+                    <div className="bg-[#181818] rounded-xl p-4">
+                      <p className="text-sm text-[#71767b] mb-2">Explicación:</p>
+                      <p className="text-[#e7e9ea] text-sm">{currentQuestion.explanation}</p>
+                    </div>
+                  )}
 
                   <button
                     onClick={initChat}

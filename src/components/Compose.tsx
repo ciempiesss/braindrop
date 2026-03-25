@@ -15,9 +15,10 @@ const MINIMIZED_KEY = 'braindrop_compose_minimized';
 function loadMinimizedState(): boolean {
   try {
     const stored = localStorage.getItem(MINIMIZED_KEY);
+    if (stored === null) return true; // collapsed by default
     return stored === 'true';
   } catch {
-    return false;
+    return true;
   }
 }
 

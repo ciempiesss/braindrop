@@ -8,7 +8,7 @@ export function Progress() {
     const total = drops.length;
     const viewed = drops.filter(d => d.viewed || d.status !== 'new').length;
     const now = new Date();
-    const dueToday = drops.filter(d => new Date(d.nextReviewDate) <= now).length;
+    const dueToday = drops.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now).length;
     const mastered = drops.filter(d => d.easeFactor > 2.8 && d.interval > 21).length;
 
     const hard = drops.filter(d => d.easeFactor < 1.8).length;

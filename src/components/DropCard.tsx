@@ -45,12 +45,12 @@ function getFontScale(): string {
   return '1';
 }
 
-const typeStyles: Record<string, { bg: string; text: string; icon: string; gradient: string; cardBorder: string; cardAccent: string }> = {
-  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '📐', gradient: 'from-blue-500/30 to-purple-500/20', cardBorder: 'border-l-[3px] border-l-blue-500/50', cardAccent: '' },
-  ruptura: { bg: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'text-red-400', icon: '⚡', gradient: 'from-red-500/30 to-rose-500/20', cardBorder: 'border-l-[3px] border-l-red-500/70', cardAccent: 'bg-gradient-to-r from-red-500/[0.04] to-transparent' },
-  puente: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🌀', gradient: 'from-purple-500/30 to-pink-500/20', cardBorder: 'border-l-[3px] border-l-purple-500/50', cardAccent: '' },
-  operativo: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '🔧', gradient: 'from-amber-500/30 to-orange-500/20', cardBorder: 'border-l-[3px] border-l-amber-500/50', cardAccent: 'bg-gradient-to-r from-amber-500/[0.03] to-transparent' },
-  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '💻', gradient: 'from-violet-500/30 to-indigo-500/20', cardBorder: 'border-l-[3px] border-l-violet-500/50', cardAccent: '' },
+const typeStyles: Record<string, { bg: string; text: string; icon: string; gradient: string; cardBorder: string; cardBorderExpanded: string; cardAccent: string; rupturaGlow: string }> = {
+  definition: { bg: 'bg-blue-500/20 text-blue-400 border-blue-500/30', text: 'text-blue-400', icon: '📐', gradient: 'from-blue-500/30 to-purple-500/20', cardBorder: 'border-l-[4px] border-l-blue-500/40', cardBorderExpanded: 'border-l-[4px] border-l-blue-500/70', cardAccent: '', rupturaGlow: '' },
+  ruptura: { bg: 'bg-red-500/20 text-red-400 border-red-500/30', text: 'text-red-400', icon: '⚡', gradient: 'from-red-500/30 to-rose-500/20', cardBorder: 'border-l-[5px] border-l-red-500/80', cardBorderExpanded: 'border-l-[5px] border-l-red-500', cardAccent: 'bg-gradient-to-r from-red-500/[0.06] to-transparent', rupturaGlow: 'shadow-[inset_0_0_40px_rgba(239,68,68,0.04)]' },
+  puente: { bg: 'bg-purple-500/20 text-purple-400 border-purple-500/30', text: 'text-purple-400', icon: '🌀', gradient: 'from-purple-500/30 to-pink-500/20', cardBorder: 'border-l-[4px] border-l-purple-500/40', cardBorderExpanded: 'border-l-[4px] border-l-purple-500/70', cardAccent: '', rupturaGlow: '' },
+  operativo: { bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30', text: 'text-amber-400', icon: '🔧', gradient: 'from-amber-500/30 to-orange-500/20', cardBorder: 'border-l-[4px] border-l-amber-500/40', cardBorderExpanded: 'border-l-[4px] border-l-amber-500/70', cardAccent: 'bg-gradient-to-r from-amber-500/[0.03] to-transparent', rupturaGlow: '' },
+  code: { bg: 'bg-violet-500/20 text-violet-400 border-violet-500/30', text: 'text-violet-400', icon: '💻', gradient: 'from-violet-500/30 to-indigo-500/20', cardBorder: 'border-l-[4px] border-l-violet-500/40', cardBorderExpanded: 'border-l-[4px] border-l-violet-500/70', cardAccent: '', rupturaGlow: '' },
 };
 
 // ── Inline markdown: **bold**, ==highlight==, first-sentence hook ────────
@@ -60,11 +60,11 @@ function renderInlineMarkdown(text: string): string {
     .replace(/==(.+?)==/g, '<mark class="bg-purple-500/20 text-purple-300 px-0.5 rounded">$1</mark>')
     .replace(/\n/g, '<br>');
 
-  // First sentence hook: make the first sentence brighter so the eye lands there
+  // First sentence hook: primera frase blanca, resto desvanece — clave para AUDHD
   const firstDot = html.indexOf('. ');
   if (firstDot > 0 && firstDot < 200) {
     html =
-      '<span class="text-white/80">' +
+      '<span class="text-white/90 font-medium">' +
       html.slice(0, firstDot + 1) +
       '</span>' +
       html.slice(firstDot + 1);
@@ -242,6 +242,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const { toggleLike: contextToggleLike } = useBrainDrop();
   const isUserCreated = !SEED_IDS.has(drop.id);
   const [cardExpanded, setCardExpanded] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [reviewDone, setReviewDone] = useState<'easy' | 'hard' | null>(null);
   const [showQuickReview, setShowQuickReview] = useState(false);
@@ -282,6 +283,13 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
+
+  // Bug 1 fix — reset expanded state when the drop changes identity
+  useEffect(() => {
+    setCardExpanded(false);
+    setShowDeleteConfirm(false);
+    setReviewDone(null);
+  }, [drop.id]);
 
   const config = DROP_TYPE_CONFIG[drop.type];
   const styles = typeStyles[drop.type];
@@ -326,13 +334,18 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
       onTouchEnd={handlePressEnd}
       onTouchCancel={handlePressEnd}
       className={cn(
-        "px-5 py-4 border-b border-white/5 transition-all w-full select-none",
-        !cardExpanded && "hover:bg-white/[0.015] cursor-pointer",
-        styles.cardBorder,
-        styles.cardAccent
+        "px-5 border-b border-white/5 w-full select-none",
+        cardExpanded ? "py-4" : "py-3",
+        "transition-[background,box-shadow,border-color,padding] duration-200 ease-out",
+        !cardExpanded && "hover:bg-white/[0.02] cursor-pointer",
+        cardExpanded ? styles.cardBorderExpanded : styles.cardBorder,
+        styles.cardAccent,
+        !cardExpanded && styles.rupturaGlow,
       )}
       style={{
-        background: 'linear-gradient(145deg, #0f0f14 0%, #0a0a0f 100%)',
+        background: cardExpanded
+          ? 'linear-gradient(145deg, #121218 0%, #0c0c12 100%)'
+          : 'linear-gradient(145deg, #0f0f14 0%, #0a0a0f 100%)',
         boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset',
         position: 'relative',
       }}
@@ -360,10 +373,11 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
       )}
 
       {/* Header: badge — siempre visible. Tags + mastery solo en expanded */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className={cn("flex items-center gap-2", cardExpanded ? "mb-3" : "mb-2")}>
         <span
           className={cn(
-            'px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all',
+            'rounded-full font-semibold border transition-all',
+            cardExpanded ? 'px-2.5 py-1 text-[10px]' : 'px-2 py-0.5 text-[9px]',
             styles.bg
           )}
           style={{
@@ -410,11 +424,14 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
       {/* Title — siempre visible */}
       <h3
-        className="font-extrabold mb-2 text-[#e7e9ea]"
+        className={cn(
+          "font-extrabold mb-1.5",
+          cardExpanded ? "text-[#e7e9ea]" : "text-white"
+        )}
         style={{
-          fontSize: `calc(${cardExpanded ? 20 : 18}px * ${fontScale})`,
+          fontSize: `calc(${cardExpanded ? 20 : 17}px * ${fontScale})`,
           lineHeight: '1.3',
-          letterSpacing: '-0.015em',
+          letterSpacing: '-0.02em',
         }}
       >
         {drop.title}
@@ -427,8 +444,10 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         return (
           <div
             className={cn(
-              "text-white/50",
-              !cardExpanded && `line-clamp-${collapsedLines}`
+              cardExpanded ? "text-white/55" : "text-white/30",
+              !cardExpanded && drop.type === 'definition' && 'line-clamp-1',
+              !cardExpanded && drop.type === 'ruptura' && 'line-clamp-3',
+              !cardExpanded && drop.type !== 'definition' && drop.type !== 'ruptura' && 'line-clamp-2',
             )}
             style={{
               fontSize: `calc(${cardExpanded ? 15.5 : 14.5}px * ${fontScale})`,
@@ -508,17 +527,29 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
           {/* Action bar */}
           <div className="flex items-center gap-3 mt-4 pt-2.5 border-t border-white/[0.04]">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm('¿Estás seguro de que quieres eliminar este drop?')) {
-                  onDelete?.(drop.id);
-                }
-              }}
-              className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
-            >
-              🗑️
-            </button>
+            {showDeleteConfirm ? (
+              <span className="flex items-center gap-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete?.(drop.id); }}
+                  className="text-[11px] text-red-400 hover:text-red-300 font-semibold transition-colors"
+                >
+                  ¿Borrar?
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
+                  className="text-[11px] text-white/30 hover:text-white/60 transition-colors"
+                >
+                  ✕
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
+                className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
+              >
+                🗑️
+              </button>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); setShowEditModal(true); }}
               className="text-white/25 hover:text-[#7c3aed] transition-colors text-[11px]"

@@ -294,15 +294,30 @@ function simulateResponse(context?: { title: string; content: string; type: stri
 ¿Te gustaría que te ayude a profundizar en "${context?.title}" desde otra perspectiva?`;
 }
 
-export function generateQuizQuestion(drop: { title: string; content: string }): {
+export function generateQuizQuestion(
+  drop: { title: string; content: string; type?: string },
+  allDrops?: { title: string; type?: string }[]
+): {
   question: string;
   options: string[];
   correctIndex: number;
 } {
+  // Pick 3 distractors from other drops (same type preferred, then any)
+  let distractors: string[];
+  if (allDrops && allDrops.length > 3) {
+    const others = allDrops
+      .filter(d => d.title !== drop.title)
+      .sort((a, b) => (a.type === drop.type ? -1 : 0) - (b.type === drop.type ? -1 : 0));
+    distractors = others.slice(0, 3).map(d => d.title);
+  } else {
+    distractors = ['Otra opción A', 'Otra opción B', 'Otra opción C'];
+  }
+
+  const shuffled = [drop.title, ...distractors].sort(() => Math.random() - 0.5);
   return {
     question: `¿Qué concepto se describe como: "${drop.content.substring(0, 100)}..."?`,
-    options: [drop.title, 'Otra opción A', 'Otra opción B', 'Otra opción C'].sort(() => Math.random() - 0.5),
-    correctIndex: 0,
+    options: shuffled,
+    correctIndex: shuffled.indexOf(drop.title),
   };
 }
 

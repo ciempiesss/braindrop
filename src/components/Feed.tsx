@@ -352,7 +352,7 @@ export function Feed({
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-3 p-4">
+          <div className="flex flex-col">
             {displayedDrops.map((drop) => (
               <DropCard
                 key={drop.id}

@@ -76,7 +76,14 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
     setIsLoading(false);
   };
 
-  const suggestions = [
+  const suggestionsByType: Record<string, string[]> = {
+    definition: ['¿Cuál es la diferencia con X?', 'Dame un ejemplo práctico', 'Hazme una pregunta sobre esto', '¿Por qué importa?'],
+    ruptura: ['¿Qué rompe exactamente?', '¿Qué creía antes?', 'Dame otro ejemplo de esto', 'Hazme una pregunta'],
+    puente: ['¿Cómo conecta con lo que ya sé?', 'Dame un ejemplo de este puente', '¿Qué otros conceptos conecta?', 'Hazme una pregunta'],
+    operativo: ['¿Cómo lo aplico ahora?', 'Dame un caso real', '¿Qué puede salir mal?', 'Hazme una pregunta'],
+    code: ['¿Cómo se usa en producción?', 'Dame un ejemplo completo', '¿Cuándo NO usarlo?', 'Hazme una pregunta'],
+  };
+  const suggestions = suggestionsByType[dropType || ''] ?? [
     'Explícame más',
     'Dame un ejemplo',
     '¿Qué conexiones tiene?',
