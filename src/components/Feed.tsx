@@ -66,28 +66,6 @@ export function Feed({
   // ── Sentinel para scroll continuo ────────────────────────────────────────
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Auto-load más al llegar al sentinel
-  useEffect(() => {
-    if (!canLoadMore) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setSessionPage(prev => prev + 1);
-      },
-      { threshold: 0.1 }
-    );
-    if (sentinelRef.current) observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canLoadMore, sessionPage]);
-
-  // Auto-rebuild al llegar al final de la sesión
-  useEffect(() => {
-    if (isSessionExhausted && activeTab === 'para-ti') {
-      rebuildPool(drops, selectedTag);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSessionExhausted]);
-
   // ── Counter de drops vistos hoy ───────────────────────────────────────────
   const dropsViewedToday = useMemo(() => {
     const today = new Date().toDateString();
@@ -138,15 +116,30 @@ export function Feed({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, visibleCount, drops, baseFilteredDrops, poolVersion]);
 
-  // ── Stats de sesión ───────────────────────────────────────────────────────
-  const sessionStats = useMemo(() => {
-    if (activeTab !== 'para-ti') return null;
-    return getSessionStats(drops);
-  }, [drops, activeTab]);
-
   const hasMoreInSession = poolIdsRef.current.length > visibleCount;
   const canLoadMore = visibleCount < MAX_SESSION && hasMoreInSession;
   const isSessionExhausted = activeTab === 'para-ti' && displayedDrops.length > 0 && !hasMoreInSession;
+
+  // Auto-load al llegar al sentinel
+  useEffect(() => {
+    if (!canLoadMore) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setSessionPage(prev => prev + 1);
+      },
+      { threshold: 0.1 }
+    );
+    if (sentinelRef.current) observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [canLoadMore, sessionPage]);
+
+  // Auto-rebuild al llegar al final de la sesión
+  useEffect(() => {
+    if (isSessionExhausted && activeTab === 'para-ti') {
+      rebuildPool(drops, selectedTag);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSessionExhausted]);
 
   // ── Handlers de sesión ────────────────────────────────────────────────────
 
@@ -169,10 +162,6 @@ export function Feed({
     setShowQuickCapture(false);
   }, [quickText, addDrop]);
 
-  const handleNewSession = useCallback(() => {
-    rebuildPool(drops, selectedTag);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [drops, selectedTag, rebuildPool]);
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
