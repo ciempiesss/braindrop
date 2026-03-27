@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
 import type { DropType } from '@/types';
 import { DROP_TYPE_CONFIG } from '@/types';
 import DOMPurify from 'dompurify';
