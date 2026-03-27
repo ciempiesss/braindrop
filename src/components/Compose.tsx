@@ -12,10 +12,17 @@ const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 30;
 const MINIMIZED_KEY = 'braindrop_compose_minimized';
 
+// ─── Neumorphism tokens ───────────────────────────────────────────────────────
+const NEU_BASE = '#0f0f14';
+const NEU_RAISED = '6px 6px 14px rgba(0,0,0,0.55), -3px -3px 8px rgba(255,255,255,0.025)';
+const NEU_INSET = 'inset 3px 3px 7px rgba(0,0,0,0.5), inset -2px -2px 5px rgba(255,255,255,0.02)';
+const NEU_PRESSED = 'inset 4px 4px 10px rgba(0,0,0,0.6), inset -2px -2px 6px rgba(255,255,255,0.015)';
+const NEU_BTN_ACTIVE = '3px 3px 8px rgba(109,40,217,0.4), -2px -2px 6px rgba(139,71,245,0.15), inset 0 1px 0 rgba(255,255,255,0.06)';
+
 function loadMinimizedState(): boolean {
   try {
     const stored = localStorage.getItem(MINIMIZED_KEY);
-    if (stored === null) return true; // collapsed by default
+    if (stored === null) return true;
     return stored === 'true';
   } catch {
     return true;
@@ -39,23 +46,10 @@ const DROP_TYPES: DropType[] = ['definition', 'ruptura', 'puente', 'operativo', 
 export function Compose({ onSubmit, collectionId }: ComposeProps) {
   const { collections } = useBrainDrop();
   const [isMinimized, setIsMinimized] = useState(loadMinimizedState);
-  const [title, setTitle] = useState('');
   const [mode, setMode] = useState<'manual' | 'ai'>('manual');
-  const [aiTopic, setAiTopic] = useState('');
-  const [aiCollection, setAiCollection] = useState(collectionId || '');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiDrops, setAiDrops] = useState<GeneratedDrop[]>([]);
-  const [aiError, setAiError] = useState('');
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(MINIMIZED_KEY, String(isMinimized));
-    } catch {
-      // ignore storage errors
-    }
-  }, [isMinimized]);
-
-  const handleToggleMinimize = () => setIsMinimized(!isMinimized);
+  // Manual
+  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<DropType>('definition');
   const [tags, setTags] = useState('');
@@ -63,6 +57,17 @@ export function Compose({ onSubmit, collectionId }: ComposeProps) {
   const [showVisual, setShowVisual] = useState(false);
   const [codeSnippet, setCodeSnippet] = useState('');
   const [visualContent, setVisualContent] = useState('');
+
+  // AI
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiCollection, setAiCollection] = useState(collectionId || '');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDrops, setAiDrops] = useState<GeneratedDrop[]>([]);
+  const [aiError, setAiError] = useState('');
+
+  useEffect(() => {
+    try { localStorage.setItem(MINIMIZED_KEY, String(isMinimized)); } catch { /* ignore */ }
+  }, [isMinimized]);
 
   const handleGenerateAI = async () => {
     if (!aiTopic.trim()) return;
@@ -114,10 +119,10 @@ export function Compose({ onSubmit, collectionId }: ComposeProps) {
     const sanitizedContent = DOMPurify.sanitize(content.trim(), { ALLOWED_TAGS: [] });
     const sanitizedTags = tags
       .split(',')
-      .map((t) => DOMPurify.sanitize(t.trim(), { ALLOWED_TAGS: [] }))
+      .map(t => DOMPurify.sanitize(t.trim(), { ALLOWED_TAGS: [] }))
       .filter(Boolean)
       .slice(0, MAX_TAGS)
-      .map((t) => t.slice(0, MAX_TAG_LENGTH));
+      .map(t => t.slice(0, MAX_TAG_LENGTH));
 
     onSubmit({
       title: sanitizedTitle,
@@ -128,289 +133,328 @@ export function Compose({ onSubmit, collectionId }: ComposeProps) {
       visualContent: showVisual ? DOMPurify.sanitize(visualContent, { ALLOWED_TAGS: [] }) : undefined,
     });
 
-    setTitle('');
-    setContent('');
-    setTags('');
-    setCodeSnippet('');
-    setVisualContent('');
-    setShowCode(false);
-    setShowVisual(false);
+    setTitle(''); setContent(''); setTags('');
+    setCodeSnippet(''); setVisualContent('');
+    setShowCode(false); setShowVisual(false);
   };
 
+  // ─── Minimized ──────────────────────────────────────────────────────────────
   if (isMinimized) {
     return (
-      <div 
-        onClick={handleToggleMinimize}
-        className="p-4 border-b border-[#2f3336] bg-[#16181c] cursor-pointer hover:bg-[#1c1f23] transition-colors"
+      <div
+        onClick={() => setIsMinimized(false)}
+        className="mx-4 my-3 px-5 py-3.5 rounded-2xl cursor-pointer flex items-center justify-between transition-all active:scale-[0.99]"
+        style={{ background: NEU_BASE, boxShadow: NEU_RAISED }}
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[#a0a0a0] font-medium">Crear drop +</span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleMinimize();
-            }}
-            className="text-[#71767b] hover:text-white transition-colors"
-          >
-            ▲
-          </button>
-        </div>
+        <span className="text-white/30 text-sm font-medium tracking-wide">Nuevo drop...</span>
+        <span className="text-white/20 text-lg">+</span>
       </div>
     );
   }
 
-  const DROP_TYPE_COLORS: Record<string, string> = {
-    definition: 'text-blue-400 border-blue-500/40 bg-blue-500/10',
-    ruptura: 'text-red-400 border-red-500/40 bg-red-500/10',
-    puente: 'text-purple-400 border-purple-500/40 bg-purple-500/10',
-    operativo: 'text-amber-400 border-amber-500/40 bg-amber-500/10',
-    code: 'text-violet-400 border-violet-500/40 bg-violet-500/10',
-  };
-
+  // ─── Expanded ───────────────────────────────────────────────────────────────
   return (
-    <div className="border-b border-[#2f3336]">
-      {/* Header con toggle manual/IA y minimizar */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3">
-        <div className="flex gap-1 bg-[#16181c] rounded-full p-1 border border-[#2f3336]">
-          <button
-            type="button"
-            onClick={() => setMode('manual')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-[12px] font-medium transition-all',
-              mode === 'manual'
-                ? 'bg-[#7c3aed] text-white'
-                : 'text-[#71767b] hover:text-white'
-            )}
-          >
-            ✍️ Manual
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('ai')}
-            className={cn(
-              'px-4 py-1.5 rounded-full text-[12px] font-medium transition-all',
-              mode === 'ai'
-                ? 'bg-[#7c3aed] text-white'
-                : 'text-[#71767b] hover:text-white'
-            )}
-          >
-            🤖 IA
-          </button>
+    <div
+      className="mx-4 my-3 rounded-2xl overflow-hidden"
+      style={{ background: NEU_BASE, boxShadow: NEU_RAISED }}
+    >
+      {/* Header: mode toggle + minimizar */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <div
+          className="flex rounded-xl p-1 gap-1"
+          style={{ boxShadow: NEU_PRESSED, background: '#0a0a10' }}
+        >
+          {(['manual', 'ai'] as const).map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
+              style={{
+                background: mode === m ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : 'transparent',
+                color: mode === m ? '#fff' : 'rgba(255,255,255,0.3)',
+                boxShadow: mode === m ? NEU_BTN_ACTIVE : 'none',
+              }}
+            >
+              {m === 'manual' ? 'Manual' : 'IA'}
+            </button>
+          ))}
         </div>
         <button
           type="button"
-          onClick={handleToggleMinimize}
-          className="text-[#71767b] hover:text-white transition-colors text-lg"
+          onClick={() => setIsMinimized(true)}
+          className="text-white/20 hover:text-white/50 transition-colors text-sm px-2 py-1"
         >
-          ▼
+          ✕
         </button>
       </div>
 
-      {/* Modo manual */}
+      {/* ─── Modo Manual ─────────────────────────────────────────────────── */}
       {mode === 'manual' && (
-        <form onSubmit={handleSubmit} className="px-5 pb-5">
-          <div className="flex flex-wrap gap-2 mb-4">
-            {DROP_TYPES.map((t) => {
-              const config = DROP_TYPE_CONFIG[t];
+        <form onSubmit={handleSubmit} className="px-4 pb-4 space-y-3">
+          {/* Type selector */}
+          <div className="flex flex-wrap gap-1.5">
+            {DROP_TYPES.map(t => {
+              const cfg = DROP_TYPE_CONFIG[t];
+              const active = type === t;
               return (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setType(t)}
-                  className={cn(
-                    'px-3.5 py-2 rounded-full text-[13px] transition-all border',
-                    type === t
-                      ? 'bg-[#7c3aed] border-[#7c3aed] text-white'
-                      : 'bg-transparent border-[#2f3336] text-[#a0a0a0] hover:border-[#7c3aed] hover:text-[#7c3aed]'
-                  )}
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
+                  style={{
+                    background: active ? 'linear-gradient(135deg, #7c3aed22, #7c3aed11)' : '#0a0a10',
+                    color: active ? '#a78bfa' : 'rgba(255,255,255,0.25)',
+                    boxShadow: active ? `${NEU_PRESSED}, inset 0 0 0 1px rgba(124,58,237,0.3)` : NEU_PRESSED,
+                    border: 'none',
+                  }}
                 >
-                  {config.emoji} {config.label}
+                  {cfg.emoji} {cfg.label}
                 </button>
               );
             })}
           </div>
 
-          <input
-            type="text"
-            placeholder="Título del drop..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={MAX_TITLE_LENGTH}
-            className="w-full bg-transparent text-lg font-semibold placeholder:text-[#71767b] focus:outline-none mb-2 text-white"
-          />
-          <div className="text-xs text-[#71767b] mb-2">{title.length}/{MAX_TITLE_LENGTH}</div>
+          {/* Title */}
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
+          >
+            <input
+              type="text"
+              placeholder="Título..."
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              maxLength={MAX_TITLE_LENGTH}
+              className="w-full bg-transparent text-[15px] font-semibold placeholder:text-white/20 focus:outline-none text-white"
+            />
+            {title.length > 150 && (
+              <span className="text-[10px] text-white/20">{title.length}/{MAX_TITLE_LENGTH}</span>
+            )}
+          </div>
 
-          <textarea
-            placeholder="¿Qué aprendiste hoy?"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            maxLength={MAX_CONTENT_LENGTH}
-            rows={3}
-            className="w-full bg-transparent text-base placeholder:text-[#71767b] focus:outline-none resize-none text-[#e0e0e0]"
-          />
-          <div className="text-xs text-[#71767b] mb-2">{content.length}/{MAX_CONTENT_LENGTH}</div>
+          {/* Content */}
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
+          >
+            <textarea
+              placeholder="¿Qué aprendiste?"
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              maxLength={MAX_CONTENT_LENGTH}
+              rows={3}
+              className="w-full bg-transparent text-[14px] placeholder:text-white/20 focus:outline-none resize-none text-white/80 leading-relaxed"
+            />
+            {content.length > 4000 && (
+              <span className="text-[10px] text-white/20">{content.length}/{MAX_CONTENT_LENGTH}</span>
+            )}
+          </div>
 
+          {/* Visual opcional */}
           {showVisual && (
-            <div className="mt-3 mb-3">
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
+            >
               <textarea
-                placeholder="🎨 Diagrama ASCII, emojis, visual..."
+                placeholder="Diagrama ASCII, emojis, visual..."
                 value={visualContent}
-                onChange={(e) => setVisualContent(e.target.value)}
+                onChange={e => setVisualContent(e.target.value)}
                 rows={4}
-                className="w-full bg-[#16181c] border border-[#2f3336] rounded-xl p-3 text-sm font-mono placeholder:text-[#71767b] focus:outline-none focus:border-[#7c3aed] text-[#a78bfa]"
+                className="w-full bg-transparent text-sm font-mono placeholder:text-white/20 focus:outline-none text-[#a78bfa] leading-relaxed"
               />
             </div>
           )}
 
+          {/* Code opcional */}
           {showCode && (
-            <div className="mt-3 mb-3">
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ boxShadow: NEU_INSET, background: '#080810' }}
+            >
               <textarea
-                placeholder="// Pega tu código aquí..."
+                placeholder="// Código..."
                 value={codeSnippet}
-                onChange={(e) => setCodeSnippet(e.target.value)}
+                onChange={e => setCodeSnippet(e.target.value)}
                 rows={4}
-                className="w-full bg-[#16181c] border border-[#2f3336] rounded-xl p-3 text-xs font-mono placeholder:text-[#71767b] focus:outline-none focus:border-[#7c3aed] text-[#a78bfa]"
+                className="w-full bg-transparent text-xs font-mono placeholder:text-white/20 focus:outline-none text-[#a78bfa] leading-relaxed"
               />
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-3 pt-2">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setShowVisual(!showVisual)}
-                className={cn('transition-colors text-lg', showVisual ? 'text-[#a78bfa]' : 'text-[#a0a0a0] hover:text-white')}
-              >
-                🎨
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCode(!showCode)}
-                className={cn('transition-colors text-lg', showCode ? 'text-[#c084fc]' : 'text-[#a0a0a0] hover:text-white')}
-              >
-                💻
-              </button>
+          {/* Footer: extras + submit */}
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowVisual(!showVisual)}
+              className="transition-colors text-sm"
+              style={{ color: showVisual ? '#a78bfa' : 'rgba(255,255,255,0.2)' }}
+              title="Visual"
+            >
+              🎨
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCode(!showCode)}
+              className="transition-colors text-sm"
+              style={{ color: showCode ? '#a78bfa' : 'rgba(255,255,255,0.2)' }}
+              title="Código"
+            >
+              💻
+            </button>
+            <div
+              className="flex-1 rounded-xl px-3 py-2"
+              style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
+            >
               <input
                 type="text"
                 placeholder="tags, separados, por coma"
                 value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                className="bg-transparent text-sm w-40 placeholder:text-[#71767b] focus:outline-none text-[#e0e0e0]"
+                onChange={e => setTags(e.target.value)}
+                className="w-full bg-transparent text-[12px] placeholder:text-white/20 focus:outline-none text-white/60"
               />
             </div>
             <button
               type="submit"
               disabled={!title.trim() || !content.trim()}
-              className={cn(
-                'px-6 py-2.5 rounded-full font-bold text-[15px] transition-colors',
-                title.trim() && content.trim()
-                  ? 'bg-[#7c3aed] text-white hover:bg-[#6d28d9]'
-                  : 'bg-[#2f3336] text-[#71767b] cursor-not-allowed'
-              )}
+              className="px-5 py-2.5 rounded-xl font-bold text-[13px] transition-all"
+              style={{
+                background: title.trim() && content.trim()
+                  ? 'linear-gradient(135deg, #7c3aed, #5b21b6)'
+                  : '#1a1a22',
+                color: title.trim() && content.trim() ? '#fff' : 'rgba(255,255,255,0.2)',
+                boxShadow: title.trim() && content.trim() ? NEU_BTN_ACTIVE : NEU_PRESSED,
+                cursor: title.trim() && content.trim() ? 'pointer' : 'not-allowed',
+              }}
             >
-              Drop it! 🧠
+              Drop
             </button>
           </div>
         </form>
       )}
 
-      {/* Modo IA */}
+      {/* ─── Modo IA ──────────────────────────────────────────────────────── */}
       {mode === 'ai' && (
-        <div className="px-5 pb-5">
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              placeholder="Tema o concepto a aprender..."
-              value={aiTopic}
-              onChange={(e) => setAiTopic(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleGenerateAI(); }}
-              className="flex-1 bg-[#16181c] border border-[#2f3336] rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-[#71767b] focus:outline-none focus:border-[#7c3aed]"
-            />
-            <select
-              value={aiCollection}
-              onChange={(e) => setAiCollection(e.target.value)}
-              className="bg-[#16181c] border border-[#2f3336] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#7c3aed] max-w-[140px]"
+        <div className="px-4 pb-4 space-y-3">
+          {/* Input + colección + generar */}
+          <div className="flex gap-2">
+            <div
+              className="flex-1 rounded-xl px-4 py-2.5"
+              style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
             >
-              <option value="">Colección...</option>
-              {collections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleGenerateAI}
-              disabled={!aiTopic.trim() || aiLoading}
-              className={cn(
-                'px-4 py-2.5 rounded-xl text-sm font-bold transition-all',
-                aiTopic.trim() && !aiLoading
-                  ? 'bg-[#7c3aed] text-white hover:bg-[#6d28d9]'
-                  : 'bg-[#2f3336] text-[#71767b] cursor-not-allowed'
-              )}
+              <input
+                type="text"
+                placeholder="Tema o concepto..."
+                value={aiTopic}
+                onChange={e => setAiTopic(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleGenerateAI(); }}
+                className="w-full bg-transparent text-sm placeholder:text-white/20 focus:outline-none text-white"
+              />
+            </div>
+            <div
+              className="rounded-xl px-3 py-2.5"
+              style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
             >
-              {aiLoading ? '⏳' : '✨ Generar'}
-            </button>
+              <select
+                value={aiCollection}
+                onChange={e => setAiCollection(e.target.value)}
+                className="bg-transparent text-white/60 text-[12px] focus:outline-none max-w-[110px]"
+              >
+                <option value="">Colección</option>
+                {collections.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {aiError && (
-            <p className="text-red-400 text-xs mb-3">{aiError}</p>
-          )}
+          <button
+            type="button"
+            onClick={handleGenerateAI}
+            disabled={!aiTopic.trim() || aiLoading}
+            className="w-full py-2.5 rounded-xl font-bold text-[13px] transition-all"
+            style={{
+              background: aiTopic.trim() && !aiLoading
+                ? 'linear-gradient(135deg, #7c3aed, #5b21b6)'
+                : '#1a1a22',
+              color: aiTopic.trim() && !aiLoading ? '#fff' : 'rgba(255,255,255,0.2)',
+              boxShadow: aiTopic.trim() && !aiLoading ? NEU_BTN_ACTIVE : NEU_PRESSED,
+            }}
+          >
+            {aiLoading ? 'Generando...' : 'Generar drops'}
+          </button>
 
-          {aiLoading && (
-            <div className="flex items-center gap-2 text-[#71767b] text-sm py-4">
-              <span className="animate-pulse">🤖</span>
-              <span>Generando drops...</span>
-            </div>
-          )}
+          {aiError && <p className="text-red-400 text-xs">{aiError}</p>}
 
+          {/* Lista de drops generados — scrolleable */}
           {aiDrops.length > 0 && (
-            <div className="space-y-3 mt-2">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-[#71767b]">{aiDrops.length} drop{aiDrops.length > 1 ? 's' : ''} generado{aiDrops.length > 1 ? 's' : ''}</span>
+                <span className="text-[11px] text-white/30">{aiDrops.length} drops generados</span>
                 {aiDrops.length > 1 && (
                   <button
                     type="button"
                     onClick={handleAcceptAllAIDrops}
-                    className="text-xs text-[#7c3aed] hover:text-white transition-colors font-medium"
+                    className="text-[11px] text-[#7c3aed] hover:text-[#a78bfa] transition-colors font-semibold"
                   >
-                    Aceptar todos →
+                    Guardar todos
                   </button>
                 )}
               </div>
-              {aiDrops.map((drop, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-white/10 bg-[#16181c] p-4"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={cn('px-2.5 py-1 rounded-full text-[11px] font-semibold border', DROP_TYPE_COLORS[drop.type])}>
-                      {DROP_TYPE_CONFIG[drop.type]?.emoji} {DROP_TYPE_CONFIG[drop.type]?.label}
-                    </span>
-                    <span className="text-xs text-white/30">{drop.tags.map(t => `#${t}`).join(' ')}</span>
-                  </div>
-                  <p className="text-white font-semibold text-sm mb-1">{drop.title}</p>
-                  <p className="text-white/60 text-xs leading-relaxed mb-3">{drop.content}</p>
-                  {drop.codeSnippet && (
-                    <pre className="text-[10px] font-mono text-[#a78bfa] bg-black/30 rounded-lg p-2 mb-3 overflow-x-auto whitespace-pre-wrap">{drop.codeSnippet}</pre>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleAcceptAIDrop(drop)}
-                      className="flex-1 py-1.5 bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-lg text-xs font-medium transition-colors"
+
+              {/* Contenedor scrolleable — fix para ver los 5 drops */}
+              <div className="max-h-[52vh] overflow-y-auto space-y-2 pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {aiDrops.map((drop, i) => {
+                  const cfg = DROP_TYPE_CONFIG[drop.type];
+                  return (
+                    <div
+                      key={i}
+                      className="rounded-xl p-3"
+                      style={{ boxShadow: NEU_INSET, background: '#0a0a10' }}
                     >
-                      ✓ Guardar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAiDrops(prev => prev.filter((_, idx) => idx !== i))}
-                      className="px-3 py-1.5 text-white/40 hover:text-red-400 rounded-lg text-xs transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-semibold text-white/40">
+                          {cfg?.emoji} {cfg?.label}
+                        </span>
+                        <span className="text-[10px] text-white/20 truncate">
+                          {drop.tags.slice(0, 3).map(t => `#${t}`).join(' ')}
+                        </span>
+                      </div>
+                      <p className="text-white/90 font-semibold text-[13px] mb-1 leading-snug">{drop.title}</p>
+                      <p className="text-white/45 text-[12px] leading-relaxed mb-2.5 line-clamp-3">{drop.content}</p>
+                      {drop.codeSnippet && (
+                        <pre className="text-[10px] font-mono text-[#a78bfa]/70 bg-black/30 rounded-lg p-2 mb-2.5 overflow-x-auto whitespace-pre-wrap line-clamp-3">
+                          {drop.codeSnippet}
+                        </pre>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptAIDrop(drop)}
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                          style={{
+                            background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                            color: '#fff',
+                            boxShadow: NEU_BTN_ACTIVE,
+                          }}
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiDrops(prev => prev.filter((_, idx) => idx !== i))}
+                          className="px-3 py-1.5 text-white/25 hover:text-red-400 rounded-lg text-[11px] transition-colors"
+                          style={{ background: '#0a0a10', boxShadow: NEU_PRESSED }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

@@ -245,7 +245,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [reviewDone, setReviewDone] = useState<'easy' | 'hard' | null>(null);
-  const [showQuickReview, setShowQuickReview] = useState(false);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [editForm, setEditForm] = useState({
     title: drop.title,
@@ -259,16 +258,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const [aiError, setAiError] = useState('');
 
   const handleToggleLike = onToggleLike || contextToggleLike;
-
-  // Long-press for quick review
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handlePressStart = useCallback(() => {
-    if (!onReview || !drop.viewed || reviewDone) return;
-    longPressTimer.current = setTimeout(() => setShowQuickReview(true), 500);
-  }, [onReview, drop.viewed, reviewDone]);
-  const handlePressEnd = useCallback(() => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  }, []);
 
   const cardRef = useRef<HTMLElement>(null);
   const handleViewed = useCallback(() => {
@@ -322,12 +311,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
     <article
       ref={cardRef}
       onClick={() => !cardExpanded && setCardExpanded(true)}
-      onMouseDown={handlePressStart}
-      onMouseUp={handlePressEnd}
-      onMouseLeave={handlePressEnd}
-      onTouchStart={handlePressStart}
-      onTouchEnd={handlePressEnd}
-      onTouchCancel={handlePressEnd}
       className={cn(
         "px-5 border-b border-white/5 w-full select-none",
         cardExpanded ? "py-4" : "py-3",
@@ -345,28 +328,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         position: 'relative',
       }}
     >
-      {/* Quick review overlay — long press */}
-      {showQuickReview && (
-        <div
-          className="absolute inset-0 rounded-xl flex items-center justify-center gap-6 z-10"
-          style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)' }}
-          onClick={(e) => { e.stopPropagation(); setShowQuickReview(false); }}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); onReview!(drop.id, 2); setReviewDone('hard'); setShowQuickReview(false); }}
-            className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/40 text-3xl flex items-center justify-center active:scale-95 transition-transform"
-          >
-            😬
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onReview!(drop.id, 4); setReviewDone('easy'); setShowQuickReview(false); }}
-            className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-3xl flex items-center justify-center active:scale-95 transition-transform"
-          >
-            😌
-          </button>
-        </div>
-      )}
-
       {/* Header: badge — siempre visible. Tags + mastery solo en expanded */}
       <div className={cn("flex items-center gap-2", cardExpanded ? "mb-3" : "mb-2")}>
         <span
@@ -507,13 +468,13 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                     onClick={(e) => { e.stopPropagation(); onReview(drop.id, 2); setReviewDone('hard'); }}
                     className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-red-500/20 text-red-400/70 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/5"
                   >
-                    {drop.status === 'relearn' ? '😬 Sigo sin entenderlo' : '😬 Difícil'}
+                    {drop.status === 'relearn' ? 'Sin entender' : 'Difícil'}
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onReview(drop.id, 4); setReviewDone('easy'); }}
                     className="flex-1 py-1.5 rounded-xl text-[12px] font-semibold transition-all border border-emerald-500/20 text-emerald-400/70 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
                   >
-                    {drop.status === 'relearn' ? '😌 Ya lo entendí' : drop.easeFactor > 2.8 ? '😌 Muy fácil' : '😌 Fácil'}
+                    {drop.status === 'relearn' ? 'Ya lo entendí' : drop.easeFactor > 2.8 ? 'Muy fácil' : 'Fácil'}
                   </button>
                 </div>
               )}
@@ -523,26 +484,27 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           {/* Action bar */}
           <div className="flex items-center gap-3 mt-4 pt-2.5 border-t border-white/[0.04]">
             {showDeleteConfirm ? (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete?.(drop.id); }}
-                  className="text-[11px] text-red-400 hover:text-red-300 font-semibold transition-colors"
+                  className="text-[11px] text-red-400 hover:text-red-300 font-bold transition-colors"
                 >
-                  ¿Borrar?
+                  Borrar
                 </button>
+                <span className="text-red-500/30 text-[10px]">|</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}
                   className="text-[11px] text-white/30 hover:text-white/60 transition-colors"
                 >
-                  ✕
+                  Cancelar
                 </button>
               </span>
             ) : (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(true); }}
-                className="text-white/25 hover:text-red-400 transition-colors text-[11px]"
+                className="text-white/20 hover:text-red-400 transition-colors text-[13px]"
               >
-                🗑️
+                ␡
               </button>
             )}
             <button
