@@ -134,7 +134,7 @@ function CodeBlock({ code }: { code?: string }) {
         </div>
         <span className="ml-2 text-xs text-white/45">snippet</span>
       </div>
-      <SyntaxHighlighter language="sql" style={oneDark} customStyle={{ margin: 0, padding: '1rem', fontSize: '12px', background: 'linear-gradient(180deg, #09111f 0%, #111827 100%)' }}>
+      <SyntaxHighlighter language="sql" style={oneDark} customStyle={{ margin: 0, padding: '1rem', fontSize: '12px', fontFamily: '"JetBrains Mono", monospace', background: 'linear-gradient(180deg, #09111f 0%, #111827 100%)' }}>
         {code}
       </SyntaxHighlighter>
     </div>
@@ -212,7 +212,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           {!expanded && reviewDone ? <span className="ml-auto text-[11px] text-white/35">{reviewDone === 'easy' ? 'Listo' : 'Repasar'}</span> : null}
         </div>
 
-        <h3 className="font-black tracking-[-0.04em] text-white" style={{ fontSize: `calc(${expanded ? 29 : 24}px * ${fontScale})`, lineHeight: expanded ? '1.03' : '1.08' }}>
+        <h3 className="font-display font-black tracking-[-0.04em] text-white" style={{ fontSize: `calc(${expanded ? 29 : 24}px * ${fontScale})`, lineHeight: expanded ? '1.03' : '1.08' }}>
           {drop.title}
         </h3>
 
@@ -261,7 +261,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                 </div>
               ) : null}
 
-              {drop.visualContent ? <pre className="whitespace-pre-wrap rounded-[20px] border border-white/10 bg-[#111827] p-4 font-mono text-xs text-violet-100/85">{strip(drop.visualContent)}</pre> : null}
+              {drop.visualContent ? <pre className="font-code whitespace-pre-wrap rounded-[20px] border border-white/10 bg-[#111827] p-4 text-xs text-violet-100/85">{strip(drop.visualContent)}</pre> : null}
               {drop.codeSnippet ? <CodeBlock code={drop.codeSnippet} /> : null}
 
               <div className={cn('rounded-[18px] border p-4 text-[14px] leading-6', style.hint)}>
@@ -424,7 +424,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-white/40">Codigo (opcional)</label>
-                    <textarea value={editForm.codeSnippet} onChange={(event) => setEditForm({ ...editForm, codeSnippet: event.target.value })} rows={3} placeholder="// snippet opcional..." className="w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-violet-200 focus:border-[#7c3aed] focus:outline-none placeholder:text-white/20" />
+                    <textarea value={editForm.codeSnippet} onChange={(event) => setEditForm({ ...editForm, codeSnippet: event.target.value })} rows={3} placeholder="// snippet opcional..." className="font-code w-full resize-none rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-violet-200 focus:border-[#7c3aed] focus:outline-none placeholder:text-white/20" />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-white/40">Tags (separados por coma)</label>

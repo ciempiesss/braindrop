@@ -1,73 +1,72 @@
 import type { Drop } from '@/types';
 
-// ─── Semilla determinística ───────────────────────────────────────────────────
-
 function lcgRand(seed: number): () => number {
-  let s = seed >>> 0;
+  let state = seed >>> 0;
   return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 0x100000000;
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 0x100000000;
   };
 }
 
 export function seededShuffle<T>(array: T[], seed: number): T[] {
-  const arr = [...array];
+  const clone = [...array];
   const rand = lcgRand(seed);
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
 
-// ─── Interleave proporcional de buckets ──────────────────────────────────────
+  for (let index = clone.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rand() * (index + 1));
+    [clone[index], clone[swapIndex]] = [clone[swapIndex], clone[index]];
+  }
+
+  return clone;
+}
 
 function interleaveBuckets(buckets: Drop[][]): Drop[] {
   const result: Drop[] = [];
   const indices = buckets.map(() => 0);
-  const weights = [3, 2, 2, 2, 1]; // A, B_urgent, B_normal, C, D
-  const total = buckets.reduce((s, b) => s + b.length, 0);
+  const weights = [3, 2, 2, 2, 1];
+  const total = buckets.reduce((sum, bucket) => sum + bucket.length, 0);
 
   while (result.length < total) {
     let added = 0;
-    for (let i = 0; i < buckets.length; i++) {
-      const count = Math.min(weights[i], buckets[i].length - indices[i]);
-      for (let j = 0; j < count; j++) {
-        result.push(buckets[i][indices[i]++]);
-        added++;
+
+    for (let bucketIndex = 0; bucketIndex < buckets.length; bucketIndex += 1) {
+      const count = Math.min(weights[bucketIndex], buckets[bucketIndex].length - indices[bucketIndex]);
+      for (let itemIndex = 0; itemIndex < count; itemIndex += 1) {
+        result.push(buckets[bucketIndex][indices[bucketIndex]]);
+        indices[bucketIndex] += 1;
+        added += 1;
       }
     }
+
     if (added === 0) break;
   }
+
   return result;
 }
 
-// ─── Diversidad de tipo (no más de 3 del mismo tipo consecutivos) ─────────────
-
 function diversify(drops: Drop[]): Drop[] {
   const result: Drop[] = [];
+  const deferred: Drop[] = [];
   let lastType = '';
   let sameTypeCount = 0;
-  const deferred: Drop[] = [];
 
   for (const drop of drops) {
     if (drop.type === lastType && sameTypeCount >= 3) {
       deferred.push(drop);
+      continue;
+    }
+
+    result.push(drop);
+    if (drop.type === lastType) {
+      sameTypeCount += 1;
     } else {
-      result.push(drop);
-      if (drop.type === lastType) {
-        sameTypeCount++;
-      } else {
-        lastType = drop.type;
-        sameTypeCount = 1;
-      }
+      lastType = drop.type;
+      sameTypeCount = 1;
     }
   }
 
   return [...result, ...deferred];
 }
-
-// ─── Algoritmo principal ──────────────────────────────────────────────────────
 
 export const SESSION_SIZE = 15;
 export const PAGE_SIZE = 10;
@@ -82,105 +81,61 @@ export function buildSessionPool(
 ): Drop[] {
   const now = new Date();
 
-  // Aplicar filtros externos
   let pool = drops;
   if (selectedTag) {
-    pool = pool.filter(d => d.tags.includes(selectedTag));
+    pool = pool.filter((drop) => drop.tags.includes(selectedTag));
   }
   if (visibleCollections && visibleCollections.length > 0) {
-    pool = pool.filter(d => d.collectionId && visibleCollections.includes(d.collectionId));
+    pool = pool.filter((drop) => drop.collectionId && visibleCollections.includes(drop.collectionId));
   }
 
-  const isUserDrop = (d: Drop) => seedIds ? !seedIds.has(d.id) : false;
+  const isUserDrop = (drop: Drop) => (seedIds ? !seedIds.has(drop.id) : false);
 
-  // Bucket A: no vistos nunca
-  // User-created drops get boosted to front (max 3)
-  const bucketA_all = pool.filter(d => d.viewed !== true);
-  const bucketA_user = seededShuffle(bucketA_all.filter(d => isUserDrop(d)), seed).slice(0, 3);
-  const userBoostIds = new Set(bucketA_user.map(d => d.id));
-  const bucketA_rest = seededShuffle(bucketA_all.filter(d => !userBoostIds.has(d.id)), seed);
-  const bucketA = [...bucketA_user, ...bucketA_rest];
+  const bucketAAll = pool.filter((drop) => drop.viewed !== true);
+  const bucketAUser = seededShuffle(bucketAAll.filter((drop) => isUserDrop(drop)), seed).slice(0, 3);
+  const userBoostIds = new Set(bucketAUser.map((drop) => drop.id));
+  const bucketARest = seededShuffle(bucketAAll.filter((drop) => !userBoostIds.has(drop.id)), seed);
+  const bucketA = [...bucketAUser, ...bucketARest];
 
-  // Bucket B: por repasar según SM-2 (due date pasada)
-  // Sub-buckets: urgent (relearn or hard learner) vs normal
-  const bucketB_all = pool.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now);
-  const bucketB_urgent = seededShuffle(
-    bucketB_all.filter(d => d.status === 'relearn' || d.easeFactor < 1.8),
+  const bucketBAll = pool.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now);
+  const bucketBUrgent = seededShuffle(
+    bucketBAll.filter((drop) => drop.status === 'relearn' || drop.easeFactor < 1.8),
     seed + 1
   );
-  const bucketB_normal = seededShuffle(
-    bucketB_all.filter(d => d.status !== 'relearn' && d.easeFactor >= 1.8),
+  const bucketBNormal = seededShuffle(
+    bucketBAll.filter((drop) => drop.status !== 'relearn' && drop.easeFactor >= 1.8),
     seed + 1
   );
-  // Urgent drops come first within bucket B
-  const bucketB = [...bucketB_urgent, ...bucketB_normal];
+  const bucketB = [...bucketBUrgent, ...bucketBNormal];
 
-  // Bucket C: liked pero no urgentes
-  const bucketAIds = new Set(bucketA.map(d => d.id));
-  const bucketBIds = new Set(bucketB.map(d => d.id));
+  const bucketAIds = new Set(bucketA.map((drop) => drop.id));
+  const bucketBIds = new Set(bucketB.map((drop) => drop.id));
   const bucketC = seededShuffle(
     pool.filter(
-      d =>
-        d.viewed === true &&
-        d.liked === true &&
-        new Date(d.nextReviewDate) > now &&
-        !bucketAIds.has(d.id) &&
-        !bucketBIds.has(d.id)
+      (drop) =>
+        drop.viewed === true &&
+        drop.liked === true &&
+        new Date(drop.nextReviewDate) > now &&
+        !bucketAIds.has(drop.id) &&
+        !bucketBIds.has(drop.id)
     ),
     seed + 2
   );
 
-  // Bucket D: comodín — todo lo demás
-  const usedIds = new Set([...bucketAIds, ...bucketBIds, ...bucketC.map(d => d.id)]);
+  const usedIds = new Set([...bucketAIds, ...bucketBIds, ...bucketC.map((drop) => drop.id)]);
   const bucketD = seededShuffle(
-    pool.filter(d => !usedIds.has(d.id)),
+    pool.filter((drop) => !usedIds.has(drop.id)),
     seed + 3
   );
 
-  // Llenar hasta MAX_SESSION redistribuyendo slots sobrantes
-  // Prioridad: A (nuevos) > B_urgent > B_normal > C (liked) > D (comodín)
-  const buckets = [bucketA, bucketB_urgent, bucketB_normal, bucketC, bucketD];
-  const targets = [
-    Math.round(MAX_SESSION * 0.3),   // 12 para A (nuevos)
-    Math.round(MAX_SESSION * 0.2),   // 8 para B_urgent (relearn/difíciles)
-    Math.round(MAX_SESSION * 0.2),   // 8 para B_normal (due normal)
-    Math.round(MAX_SESSION * 0.2),   // 8 para C (liked)
-    MAX_SESSION - Math.round(MAX_SESSION * 0.3) - Math.round(MAX_SESSION * 0.2) - Math.round(MAX_SESSION * 0.2) - Math.round(MAX_SESSION * 0.2), // 4 para D
-  ];
-
-  const taken: Drop[][] = [[], [], [], [], []];
-  let remaining = MAX_SESSION;
-
-  // Primera pasada: tomar hasta el target de cada bucket
-  for (let i = 0; i < buckets.length; i++) {
-    const take = Math.min(targets[i], buckets[i].length, remaining);
-    taken[i] = buckets[i].slice(0, take);
-    remaining -= take;
-  }
-
-  // Segunda pasada: si sobran slots, redistribuir desde los buckets que tengan más
-  if (remaining > 0) {
-    for (let i = 0; i < buckets.length && remaining > 0; i++) {
-      const alreadyTaken = taken[i].length;
-      const available = buckets[i].length - alreadyTaken;
-      if (available > 0) {
-        const extra = Math.min(available, remaining);
-        taken[i] = [...taken[i], ...buckets[i].slice(alreadyTaken, alreadyTaken + extra)];
-        remaining -= extra;
-      }
-    }
-  }
-
-  const selected = interleaveBuckets(taken);
-  return diversify(selected);
+  const ordered = interleaveBuckets([bucketA, bucketBUrgent, bucketBNormal, bucketC, bucketD]);
+  return diversify(ordered);
 }
-
-// ─── Stats para el UI de fin de sesión ───────────────────────────────────────
 
 export function getSessionStats(drops: Drop[]): { unseen: number; dueForReview: number } {
   const now = new Date();
   return {
-    unseen: drops.filter(d => d.viewed !== true).length,
-    dueForReview: drops.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now).length,
+    unseen: drops.filter((drop) => drop.viewed !== true).length,
+    dueForReview: drops.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now).length,
   };
 }

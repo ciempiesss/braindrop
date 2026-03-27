@@ -27,16 +27,21 @@ function StorageFullBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] bg-[#f87171] text-white px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
-      <p className="text-sm font-medium">⚠️ Almacenamiento lleno. Exporta tus datos para no perderlos.</p>
-      <div className="flex items-center gap-2 flex-shrink-0">
+    <div className="fixed left-0 right-0 top-0 z-[100] flex items-center justify-between gap-3 bg-[#f87171] px-4 py-3 text-white shadow-lg">
+      <p className="text-sm font-medium">Almacenamiento lleno. Exporta tus datos para no perderlos.</p>
+      <div className="flex flex-shrink-0 items-center gap-2">
         <button
           onClick={() => exportData(drops, collections)}
-          className="px-3 py-1 bg-white text-[#f87171] rounded-full text-xs font-bold hover:bg-white/90 transition-colors"
+          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#f87171] transition-colors hover:bg-white/90"
         >
           Exportar JSON
         </button>
-        <button onClick={() => setVisible(false)} className="text-white/70 hover:text-white text-lg leading-none">✕</button>
+        <button
+          onClick={() => setVisible(false)}
+          className="text-lg leading-none text-white/70 hover:text-white"
+        >
+          x
+        </button>
       </div>
     </div>
   );
@@ -44,21 +49,22 @@ function StorageFullBanner() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(98,121,170,0.14),transparent_32%),linear-gradient(180deg,#0d1118_0%,#10151d_100%)]">
       <div className="text-center">
-        <div className="text-5xl mb-4">🧠</div>
-        <div className="w-6 h-6 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="font-display mb-4 text-4xl font-black tracking-[-0.06em] text-white">
+          BrainDrop
+        </div>
+        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#7c3aed] border-t-transparent" />
       </div>
     </div>
   );
 }
 
 function AppContent() {
-  const { loading } = useBrainDrop();
+  const { loading, getDropsForReview } = useBrainDrop();
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const { getDropsForReview } = useBrainDrop();
 
   const dropsForReview = getDropsForReview().length;
 
@@ -71,18 +77,25 @@ function AppContent() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'feed': return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
-      case 'explore': return <Explore />;
-      case 'progress': return <Progress />;
-      case 'quiz': return <Quiz />;
-      case 'collections': return <Collections />;
-      case 'settings': return <Settings />;
-      default: return <Feed />;
+      case 'feed':
+        return <Feed selectedTag={tagFilter} onClearTagFilter={() => setTagFilter(null)} />;
+      case 'explore':
+        return <Explore />;
+      case 'progress':
+        return <Progress />;
+      case 'quiz':
+        return <Quiz />;
+      case 'collections':
+        return <Collections />;
+      case 'settings':
+        return <Settings />;
+      default:
+        return <Feed />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(98,121,170,0.14),transparent_32%),linear-gradient(180deg,#0d1118_0%,#10151d_100%)]">
       <StorageFullBanner />
 
       <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-[260px] lg:z-50">
@@ -96,58 +109,63 @@ function AppContent() {
       </div>
 
       <div className="hidden lg:flex lg:h-screen lg:overflow-hidden">
-        <div className="flex-1 flex min-w-0 pl-[260px]">
-          <main className="flex-1 min-w-0 overflow-y-auto">{renderContent()}</main>
+        <div className="flex min-w-0 flex-1 pl-[260px]">
+          <main className="min-w-0 flex-1 overflow-y-auto">{renderContent()}</main>
           <RightSidebar onStartQuiz={() => setActiveTab('quiz')} onTagClick={handleTagClick} />
         </div>
       </div>
 
-      {sidebarOpen && (
+      {sidebarOpen ? (
         <>
-          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-          <div className="fixed inset-y-0 left-0 z-50 w-[260px] bg-[#0a0a0a] lg:hidden">
+          <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-50 w-[260px] lg:hidden">
             <Sidebar
               activeTab={activeTab}
-              onTabChange={(tab) => { setActiveTab(tab as Tab); setSidebarOpen(false); }}
+              onTabChange={(tab) => {
+                setActiveTab(tab as Tab);
+                setSidebarOpen(false);
+              }}
               dropsForReview={dropsForReview}
               isOpen={true}
               onClose={() => setSidebarOpen(false)}
             />
           </div>
         </>
-      )}
+      ) : null}
 
-      <div className="lg:hidden flex flex-col h-screen">
-        <header className="flex items-center justify-between p-4 border-b border-[#2f3336] bg-[#0a0a0a] sticky top-0 z-30">
-          <button onClick={() => setSidebarOpen(true)} className="text-2xl text-[#e7e9ea]">☰</button>
-          <div className="text-xl font-extrabold bg-gradient-to-r from-[#7c3aed] to-[#2563eb] bg-clip-text text-transparent">
-            🧠 BrainDrop
+      <div className="flex h-screen flex-col lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[rgba(15,20,29,0.9)] px-4 py-4 backdrop-blur-xl">
+          <button onClick={() => setSidebarOpen(true)} className="text-2xl text-white">
+            =
+          </button>
+          <div className="font-display text-xl font-black tracking-[-0.05em] text-white">
+            BrainDrop
           </div>
           <div className="w-8" />
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-16">{renderContent()}</main>
+        <main className="flex-1 overflow-y-auto pb-20">{renderContent()}</main>
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-[#2f3336] z-30">
-          <div className="flex justify-around py-2">
+        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/6 bg-[rgba(15,20,29,0.94)] backdrop-blur-xl">
+          <div className="flex justify-around px-2 py-2">
             {[
-              { id: 'feed', icon: '🏠', label: 'Feed' },
-              { id: 'explore', icon: '🔍', label: 'Explorar' },
-              { id: 'progress', icon: '📈', label: 'Progreso' },
-              { id: 'quiz', icon: '🎯', label: 'Quiz' },
-              { id: 'collections', icon: '📚', label: 'Cols' },
-              { id: 'settings', icon: '⚙️', label: 'Config' },
+              { id: 'feed', icon: 'Home', label: 'Feed' },
+              { id: 'explore', icon: 'Find', label: 'Explorar' },
+              { id: 'progress', icon: 'Track', label: 'Progreso' },
+              { id: 'quiz', icon: 'Quiz', label: 'Quiz' },
+              { id: 'collections', icon: 'Stack', label: 'Cols' },
+              { id: 'settings', icon: 'Prefs', label: 'Config' },
             ].map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as Tab)}
                 className={cn(
-                  'flex flex-col items-center py-2 px-2',
-                  activeTab === item.id ? 'text-[#7c3aed]' : 'text-[#71767b]'
+                  'flex flex-col items-center rounded-[18px] px-2 py-2 text-[10px]',
+                  activeTab === item.id ? 'text-white' : 'text-white/42'
                 )}
               >
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-[10px] mt-0.5">{item.label}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em]">{item.icon}</span>
+                <span className="mt-1">{item.label}</span>
               </button>
             ))}
           </div>
