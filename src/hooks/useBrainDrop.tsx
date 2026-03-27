@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useCallback, t
 import type { Drop, Collection } from '@/types';
 import { SAMPLE_DROPS, SAMPLE_COLLECTIONS } from '@/data/seed';
 import { generateId } from '@/lib/utils';
+import { supabase, dbToDrop, dropToDb, dbToCollection, collectionToDb } from '@/lib/supabase';
 
 interface Streak {
   lastDate: string;
@@ -12,16 +13,17 @@ interface Streak {
 interface BrainDropContextType {
   drops: Drop[];
   collections: Collection[];
-  addDrop: (drop: Omit<Drop, 'id' | 'createdAt' | 'updatedAt' | 'interval' | 'repetitionCount' | 'easeFactor' | 'nextReviewDate' | 'status'>) => void;
-  updateDrop: (id: string, updates: Partial<Drop>) => void;
-  deleteDrop: (id: string) => void;
-  addCollection: (collection: Omit<Collection, 'id' | 'createdAt' | 'dropCount'>) => void;
+  loading: boolean;
+  addDrop: (drop: Omit<Drop, 'id' | 'createdAt' | 'updatedAt' | 'interval' | 'repetitionCount' | 'easeFactor' | 'nextReviewDate' | 'status'>) => Promise<void>;
+  updateDrop: (id: string, updates: Partial<Drop>) => Promise<void>;
+  deleteDrop: (id: string) => Promise<void>;
+  addCollection: (collection: Omit<Collection, 'id' | 'createdAt' | 'dropCount'>) => Promise<void>;
   getDropsForReview: () => Drop[];
-  reviewDrop: (id: string, quality: number) => void;
+  reviewDrop: (id: string, quality: number) => Promise<void>;
   searchDrops: (query: string) => Drop[];
   filterDrops: (type?: string, collectionId?: string, tag?: string) => Drop[];
-  toggleLike: (id: string) => void;
-  markAsViewed: (id: string) => void;
+  toggleLike: (id: string) => Promise<void>;
+  markAsViewed: (id: string) => Promise<void>;
   streak: Streak;
   isUserDrop: (id: string) => boolean;
   seedIds: Set<string>;
@@ -29,46 +31,7 @@ interface BrainDropContextType {
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
 
-// Keys
-const KEY_DROPS = 'bd_drops';
-const KEY_COLLECTIONS = 'bd_collections';
-const KEY_USER_DROPS = 'bd_user_drops';
-const KEY_HASH = 'bd_data_hash';
-
-// Generate hash from seed data
-function generateDataHash(data: unknown): string {
-  const str = JSON.stringify(data);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
-}
-
-const SEED_HASH = generateDataHash({ drops: SAMPLE_DROPS, collections: SAMPLE_COLLECTIONS });
-
-// Safe localStorage wrapper
-function getItem<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    if (stored) return JSON.parse(stored);
-  } catch {
-    // ignore parse errors
-  }
-  return fallback;
-}
-
-function setItem(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      window.dispatchEvent(new CustomEvent('braindrop:storage-full'));
-    }
-  }
-}
+// ─── Streak (localStorage) ────────────────────────────────────────────────────
 
 const KEY_STREAK = 'braindrop_streak';
 
@@ -80,44 +43,96 @@ function loadStreak(): Streak {
   return { lastDate: '', count: 0, record: 0 };
 }
 
-function updateStreak(): void {
+function bumpStreak(): void {
   const today = new Date().toDateString();
   const stored = loadStreak();
   if (stored.lastDate === today) return;
   const yesterday = new Date(Date.now() - 86400000).toDateString();
   const newCount = stored.lastDate === yesterday ? stored.count + 1 : 1;
-  const newRecord = Math.max(newCount, stored.record);
   try {
-    localStorage.setItem(KEY_STREAK, JSON.stringify({ lastDate: today, count: newCount, record: newRecord }));
+    localStorage.setItem(KEY_STREAK, JSON.stringify({
+      lastDate: today, count: newCount, record: Math.max(newCount, stored.record)
+    }));
   } catch { /* ignore */ }
 }
 
-export function BrainDropProvider({ children }: { children: ReactNode }) {
-  // Check if seed data changed - if so, merge with user data
-  const initialDrops = useMemo(() => {
-    const storedHash = getItem<string>(KEY_HASH, '');
-    const userDrops = getItem<Drop[]>(KEY_USER_DROPS, []);
-    
-    // If seed changed, merge user drops with new seed
-    if (storedHash !== SEED_HASH) {
-      const userIds = new Set(userDrops.map(d => d.id));
-      const newDrops = SAMPLE_DROPS.filter(d => !userIds.has(d.id));
-      const merged = [...newDrops, ...userDrops];
-      setItem(KEY_DROPS, merged);
-      setItem(KEY_HASH, SEED_HASH);
-      return merged;
+// ─── Seed inicial ─────────────────────────────────────────────────────────────
+
+const SEED_IDS = new Set(SAMPLE_DROPS.map(d => d.id));
+
+async function seedInitialData(): Promise<void> {
+  // Migrar drops de usuario desde localStorage si los hay
+  let localUserDrops: Drop[] = [];
+  try {
+    const stored = localStorage.getItem('bd_user_drops');
+    if (stored) {
+      const parsed: Drop[] = JSON.parse(stored);
+      localUserDrops = parsed.filter(d => !SEED_IDS.has(d.id));
     }
-    
-    return getItem<Drop[]>(KEY_DROPS, SAMPLE_DROPS);
+  } catch { /* ignore */ }
+
+  const colRows = SAMPLE_COLLECTIONS.map(c => collectionToDb(c));
+  await supabase.from('collections').upsert(colRows);
+
+  const allDrops = [...SAMPLE_DROPS, ...localUserDrops];
+  for (let i = 0; i < allDrops.length; i += 50) {
+    await supabase.from('drops').upsert(allDrops.slice(i, i + 50).map(dropToDb));
+  }
+
+  // Limpiar localStorage
+  ['bd_user_drops', 'bd_drops', 'bd_collections', 'bd_data_hash'].forEach(k => {
+    try { localStorage.removeItem(k); } catch { /* ignore */ }
+  });
+}
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+
+export function BrainDropProvider({ children }: { children: ReactNode }) {
+  const [drops, setDrops] = useState<Drop[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      setLoading(true);
+
+      const [dropsRes, colsRes] = await Promise.all([
+        supabase.from('drops').select('*').order('created_at', { ascending: false }),
+        supabase.from('collections').select('*'),
+      ]);
+
+      if (cancelled) return;
+
+      if (dropsRes.error || colsRes.error) {
+        console.error('Error cargando datos:', dropsRes.error || colsRes.error);
+        setLoading(false);
+        return;
+      }
+
+      if (dropsRes.data.length === 0) {
+        await seedInitialData();
+        if (cancelled) return;
+        const [d2, c2] = await Promise.all([
+          supabase.from('drops').select('*').order('created_at', { ascending: false }),
+          supabase.from('collections').select('*'),
+        ]);
+        if (!cancelled) {
+          setDrops((d2.data || []).map(dbToDrop));
+          setCollections((c2.data || []).map(dbToCollection));
+        }
+      } else {
+        setDrops(dropsRes.data.map(dbToDrop));
+        setCollections(colsRes.data.map(dbToCollection));
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    loadData();
+    return () => { cancelled = true; };
   }, []);
-
-  const [drops, setDrops] = useState<Drop[]>(initialDrops);
-
-  const initialCollections = useMemo(() => {
-    return getItem<Collection[]>(KEY_COLLECTIONS, SAMPLE_COLLECTIONS);
-  }, []);
-
-  const [collections, setCollections] = useState<Collection[]>(initialCollections);
 
   const collectionsWithCount = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -126,24 +141,12 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   }, [drops, collections]);
 
   const streak = useMemo(() => loadStreak(), [drops]);
-
-  const seedIdsSet = useMemo(() => new Set(SAMPLE_DROPS.map(sd => sd.id)), []);
+  const seedIdsSet = useMemo(() => SEED_IDS, []);
   const isUserDrop = useCallback((id: string) => !seedIdsSet.has(id), [seedIdsSet]);
 
-  // Persist on change
-  useEffect(() => {
-    setItem(KEY_DROPS, drops);
-    // Save user-created drops separately for merging
-    const seedIds = new Set(SAMPLE_DROPS.map(sd => sd.id));
-    const userDrops = drops.filter(dd => !seedIds.has(dd.id));
-    setItem(KEY_USER_DROPS, userDrops);
-  }, [drops]);
+  // ─── CRUD ─────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    setItem(KEY_COLLECTIONS, collections);
-  }, [collections]);
-
-  const addDrop: BrainDropContextType['addDrop'] = (dropData) => {
+  const addDrop: BrainDropContextType['addDrop'] = useCallback(async (dropData) => {
     const newDrop: Drop = {
       ...dropData,
       id: generateId(),
@@ -155,138 +158,140 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
       nextReviewDate: new Date().toISOString(),
       status: 'new',
     };
-    setDrops((prev) => [newDrop, ...prev]);
-  };
+    setDrops(prev => [newDrop, ...prev]);
+    await supabase.from('drops').insert(dropToDb(newDrop));
+  }, []);
 
-  const updateDrop: BrainDropContextType['updateDrop'] = (id, updates) => {
-    setDrops((prev) =>
-      prev.map((drop) =>
-        drop.id === id ? { ...drop, ...updates, updatedAt: new Date().toISOString() } : drop
-      )
-    );
-  };
+  const updateDrop: BrainDropContextType['updateDrop'] = useCallback(async (id, updates) => {
+    const updatedAt = new Date().toISOString();
+    setDrops(prev => prev.map(d => d.id === id ? { ...d, ...updates, updatedAt } : d));
 
-  const deleteDrop: BrainDropContextType['deleteDrop'] = (id) => {
-    setDrops((prev) => prev.filter((drop) => drop.id !== id));
-  };
+    // Convertir keys camelCase a snake_case para Supabase
+    const dbUpdates: Record<string, unknown> = { updated_at: updatedAt };
+    const keyMap: Record<string, string> = {
+      collectionId: 'collection_id', codeSnippet: 'code_snippet',
+      imageUrl: 'image_url', visualContent: 'visual_content',
+      visualType: 'visual_type', visualData: 'visual_data',
+      repetitionCount: 'repetition_count', easeFactor: 'ease_factor',
+      nextReviewDate: 'next_review_date', lastReviewDate: 'last_review_date',
+      interval: 'interval_days',
+    };
+    for (const [k, v] of Object.entries(updates)) {
+      dbUpdates[keyMap[k] ?? k] = v;
+    }
+    await supabase.from('drops').update(dbUpdates).eq('id', id);
+  }, []);
 
-  const addCollection: BrainDropContextType['addCollection'] = (collectionData) => {
-    const newCollection: Collection = {
+  const deleteDrop: BrainDropContextType['deleteDrop'] = useCallback(async (id) => {
+    setDrops(prev => prev.filter(d => d.id !== id));
+    await supabase.from('drops').delete().eq('id', id);
+  }, []);
+
+  const addCollection: BrainDropContextType['addCollection'] = useCallback(async (collectionData) => {
+    const newCol: Collection = {
       ...collectionData,
       id: generateId(),
       createdAt: new Date().toISOString(),
       dropCount: 0,
     };
-    setCollections((prev) => [...prev, newCollection]);
-  };
-
-  const dropsForReview = useMemo(() => {
-    const now = new Date();
-    return drops.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now);
-  }, [drops]);
-
-  const getDropsForReview: BrainDropContextType['getDropsForReview'] = () => {
-    return dropsForReview;
-  };
-
-  const reviewDrop: BrainDropContextType['reviewDrop'] = (id, quality) => {
-    updateStreak();
-    setDrops((prev) =>
-      prev.map((drop) => {
-        if (drop.id !== id) return drop;
-
-        let { interval, easeFactor, status } = drop;
-
-        if (quality < 3) {
-          status = 'relearn';
-          interval = 1;
-        } else {
-          if (status === 'new') {
-            status = 'learning';
-            interval = 1;
-          } else if (status === 'learning') {
-            interval = 6;
-            status = 'review';
-          } else {
-            interval = Math.round(interval * easeFactor);
-          }
-
-          easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-          easeFactor = Math.max(1.3, easeFactor);
-        }
-
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + interval);
-
-        return {
-          ...drop,
-          interval,
-          easeFactor,
-          status,
-          nextReviewDate: nextDate.toISOString(),
-          lastReviewDate: new Date().toISOString(),
-          repetitionCount: drop.repetitionCount + 1,
-        };
-      })
-    );
-  };
-
-  const searchDrops: BrainDropContextType['searchDrops'] = (query) => {
-    const lowerQuery = query.toLowerCase();
-    return drops.filter(
-      (drop) =>
-        drop.title.toLowerCase().includes(lowerQuery) ||
-        drop.content.toLowerCase().includes(lowerQuery) ||
-        drop.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
-    );
-  };
-
-  const filterDrops: BrainDropContextType['filterDrops'] = (type, collectionId, tag) => {
-    return drops.filter((drop) => {
-      if (type && drop.type !== type) return false;
-      if (collectionId && drop.collectionId !== collectionId) return false;
-      if (tag && !drop.tags.includes(tag)) return false;
-      return true;
-    });
-  };
-
-  const toggleLike: BrainDropContextType['toggleLike'] = (id) => {
-    setDrops((prev) =>
-      prev.map((drop) =>
-        drop.id === id ? { ...drop, liked: !drop.liked } : drop
-      )
-    );
-  };
-
-  const markAsViewed: BrainDropContextType['markAsViewed'] = useCallback((id) => {
-    setDrops((prev) => {
-      const drop = prev.find(d => d.id === id);
-      if (!drop || drop.viewed) return prev;
-      updateStreak();
-      return prev.map((d) => d.id === id ? { ...d, viewed: true } : d);
-    });
+    setCollections(prev => [...prev, newCol]);
+    await supabase.from('collections').insert(collectionToDb(newCol));
   }, []);
 
+  // ─── Review / SM-2 ───────────────────────────────────────────────────────
+
+  const getDropsForReview: BrainDropContextType['getDropsForReview'] = useCallback(() => {
+    const now = new Date();
+    return drops.filter(d => d.viewed === true && new Date(d.nextReviewDate) <= now);
+  }, [drops]);
+
+  const reviewDrop: BrainDropContextType['reviewDrop'] = useCallback(async (id, quality) => {
+    bumpStreak();
+    let updatedDrop: Drop | null = null;
+
+    setDrops(prev => prev.map(drop => {
+      if (drop.id !== id) return drop;
+      let { interval, easeFactor, status } = drop;
+
+      if (quality < 3) {
+        status = 'relearn'; interval = 1;
+      } else {
+        if (status === 'new') { status = 'learning'; interval = 1; }
+        else if (status === 'learning') { interval = 6; status = 'review'; }
+        else { interval = Math.round(interval * easeFactor); }
+        easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      }
+
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + interval);
+      updatedDrop = {
+        ...drop, interval, easeFactor, status,
+        nextReviewDate: nextDate.toISOString(),
+        lastReviewDate: new Date().toISOString(),
+        repetitionCount: drop.repetitionCount + 1,
+      };
+      return updatedDrop;
+    }));
+
+    if (updatedDrop) {
+      const d = updatedDrop as Drop;
+      await supabase.from('drops').update({
+        interval_days: d.interval,
+        ease_factor: d.easeFactor,
+        status: d.status,
+        next_review_date: d.nextReviewDate,
+        last_review_date: d.lastReviewDate,
+        repetition_count: d.repetitionCount,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+    }
+  }, [drops]);
+
+  const searchDrops: BrainDropContextType['searchDrops'] = useCallback((query) => {
+    const q = query.toLowerCase();
+    return drops.filter(d =>
+      d.title.toLowerCase().includes(q) ||
+      d.content.toLowerCase().includes(q) ||
+      d.tags.some(t => t.toLowerCase().includes(q))
+    );
+  }, [drops]);
+
+  const filterDrops: BrainDropContextType['filterDrops'] = useCallback((type, collectionId, tag) => {
+    return drops.filter(d => {
+      if (type && d.type !== type) return false;
+      if (collectionId && d.collectionId !== collectionId) return false;
+      if (tag && !d.tags.includes(tag)) return false;
+      return true;
+    });
+  }, [drops]);
+
+  const toggleLike: BrainDropContextType['toggleLike'] = useCallback(async (id) => {
+    let newLiked = false;
+    setDrops(prev => prev.map(d => {
+      if (d.id !== id) return d;
+      newLiked = !d.liked;
+      return { ...d, liked: newLiked };
+    }));
+    await supabase.from('drops').update({ liked: newLiked }).eq('id', id);
+  }, []);
+
+  const markAsViewed: BrainDropContextType['markAsViewed'] = useCallback(async (id) => {
+    const drop = drops.find(d => d.id === id);
+    if (!drop || drop.viewed) return;
+    bumpStreak();
+    setDrops(prev => prev.map(d => d.id === id ? { ...d, viewed: true } : d));
+    await supabase.from('drops').update({ viewed: true }).eq('id', id);
+  }, [drops]);
+
   return (
-    <BrainDropContext.Provider
-      value={{
-        drops,
-        collections: collectionsWithCount,
-        addDrop,
-        updateDrop,
-        deleteDrop,
-        addCollection,
-        getDropsForReview,
-        reviewDrop,
-        searchDrops,
-        filterDrops,
-        toggleLike,
-        markAsViewed,
-        streak,
-        isUserDrop,
-        seedIds: seedIdsSet,
-      }}
-    >
+    <BrainDropContext.Provider value={{
+      drops, collections: collectionsWithCount, loading,
+      addDrop, updateDrop, deleteDrop, addCollection,
+      getDropsForReview, reviewDrop,
+      searchDrops, filterDrops,
+      toggleLike, markAsViewed,
+      streak, isUserDrop, seedIds: seedIdsSet,
+    }}>
       {children}
     </BrainDropContext.Provider>
   );
@@ -294,8 +299,6 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
 
 export function useBrainDrop() {
   const context = useContext(BrainDropContext);
-  if (!context) {
-    throw new Error('useBrainDrop must be used within BrainDropProvider');
-  }
+  if (!context) throw new Error('useBrainDrop must be used within BrainDropProvider');
   return context;
 }

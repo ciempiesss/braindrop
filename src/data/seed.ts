@@ -7,7 +7,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Filosofía de la mente, metafísica, psicología, crítica cultural',
     color: '#7c3aed',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'software',
@@ -15,7 +15,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Programación, arquitectura, patrones de desarrollo',
     color: '#6d28d9',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'patrones',
@@ -23,7 +23,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Estructuras que se repiten a través de dominios',
     color: '#f59e0b',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'geopolitica',
@@ -31,7 +31,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Imperialismo, economía política, Marx, conflictos, narrativas de poder',
     color: '#b91c1c',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'hermetismo',
@@ -39,7 +39,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Tradiciones esotéricas, gnosticismo, alquimia, magia del caos',
     color: '#dc2626',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'rotoplas',
@@ -47,7 +47,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Contexto laboral activo',
     color: '#0ea5e9',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'automatizacion',
@@ -55,7 +55,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Scraping, bots, agentes de IA, despliegue en producción',
     color: '#10b981',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
   {
     id: 'qa-pro',
@@ -63,7 +63,7 @@ export const SAMPLE_COLLECTIONS: Collection[] = [
     description: 'Testing manual, automatizado, APIs, performance, seguridad',
     color: '#7c3aed',
     dropCount: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
   },
 ];
 
@@ -81,8 +81,8 @@ function d(partial: {
 }): Drop {
   return {
     ...partial,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
     interval: 1,
     repetitionCount: 0,
     easeFactor: 2.5,
