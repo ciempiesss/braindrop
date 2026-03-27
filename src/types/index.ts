@@ -79,14 +79,43 @@ export interface Collection {
   createdAt: string;
 }
 
-export interface QuizSession {
-  id: string;
-  drops: Drop[];
-  currentIndex: number;
-  correctCount: number;
-  incorrectCount: number;
-  startedAt: string;
-  completedAt?: string;
+export type QuestionType = 'multiple-choice' | 'true-false' | 'fill-blank' | 'flashcard';
+export type Difficulty = 'facil' | 'medio' | 'dificil';
+export type QuizGenerationMode = 'curated' | 'local' | 'ia';
+
+export interface QuizQuestion {
+  dropId?: string;        // optional — preguntas curadas no tienen drop asociado
+  collectionId?: string;  // para filtrar y mostrar en resultados
+  conceptName?: string;   // nombre del concepto para mostrar en resultados
+  type: QuestionType;
+  difficulty: Difficulty;
+  question: string;
+  answer: string;
+  explanation: string;
+  // Multiple choice
+  options?: string[];
+  correctIndex?: number;
+  // True/False
+  isTrue?: boolean;
+  // Fill-in-blank
+  blankSentence?: string;
+  blankWord?: string;
+  blankOptions?: string[];
+}
+
+export interface QuizConfig {
+  collectionId: string | null;
+  difficulty: Difficulty;
+  count: 5 | 10 | 20;
+  mode: QuizGenerationMode;
+}
+
+export interface QuizAnswerRecord {
+  dropId?: string;
+  questionText: string;
+  conceptName?: string;
+  correct: boolean;
+  quality: number;
 }
 
 export const DROP_TYPE_CONFIG: Record<DropType, { label: string; emoji: string; color: string; bgColor: string }> = {

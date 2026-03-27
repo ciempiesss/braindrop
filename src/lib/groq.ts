@@ -1,3 +1,6 @@
+import type { QuizQuestion, Difficulty } from '@/types';
+export type { QuizQuestion };
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 interface GroqMessage {
@@ -11,15 +14,6 @@ interface GroqResponse {
       content: string;
     };
   }>;
-}
-
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-  example?: string;
-  dropId: string;
 }
 
 export interface GeneratedDrop {
@@ -382,7 +376,6 @@ export function generateQuizQuestion(
   options: string[];
   correctIndex: number;
 } {
-  // Pick 3 distractors from other drops (same type preferred, then any)
   let distractors: string[];
   if (allDrops && allDrops.length > 3) {
     const others = allDrops
@@ -393,48 +386,62 @@ export function generateQuizQuestion(
     distractors = ['Otra opción A', 'Otra opción B', 'Otra opción C'];
   }
 
-  const shuffled = [drop.title, ...distractors].sort(() => Math.random() - 0.5);
+  // Bug fix #2: construir pool con marcador ANTES de shuffle, recuperar índice DESPUÉS
+  const pool = [
+    { text: drop.title, correct: true },
+    ...distractors.map(t => ({ text: t, correct: false })),
+  ];
+  const shuffled = pool.sort(() => Math.random() - 0.5);
   return {
     question: `¿Qué concepto se describe como: "${drop.content.substring(0, 100)}..."?`,
-    options: shuffled,
-    correctIndex: shuffled.indexOf(drop.title),
+    options: shuffled.map(o => o.text),
+    correctIndex: shuffled.findIndex(o => o.correct),
   };
 }
 
+const DIFFICULTY_PROMPT: Record<string, string> = {
+  facil: 'La pregunta debe ser directa — reconocimiento del concepto. Opciones claramente distintas.',
+  medio: 'La pregunta debe requerir comprensión. Las opciones pueden ser cercanas pero distinguibles.',
+  dificil: 'La pregunta debe requerir aplicación o síntesis. Las opciones deben ser muy cercanas y matizadas.',
+};
+
 export async function generateSmartQuizQuestion(
-  drop: { id: string; title: string; content: string; type: string; tags: string[] }
+  drop: { id: string; title: string; content: string; type: string; tags: string[] },
+  difficulty: Difficulty = 'medio'
 ): Promise<QuizQuestion> {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  
+
   if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return generateFallbackQuizQuestion(drop);
+    return generateFallbackQuizQuestion(drop, difficulty);
   }
 
-  const systemPrompt = `Eres un generador de preguntas de quiz para aprendizaje. 
-Tu tarea es crear PREGUNTAS DIFERENTES al título original del concepto.
-NO copies el título como pregunta. Parafrasea, usa otras palabras, analogías o ejemplos diferentes.
+  const difficultyHint = DIFFICULTY_PROMPT[difficulty] ?? DIFFICULTY_PROMPT.medio;
 
-Genera preguntas que:
-1. Usen otras palabras diferentes al título
-2. Presenten un caso práctico o ejemplo del trabajo
-3. Hagan pensar al estudiante, no solo memorizar
+  const systemPrompt = `Eres un generador de preguntas de quiz para aprendizaje.
+Tu tarea: crear una pregunta de opción múltiple que NO copie el título.
 
-Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+Dificultad: ${difficulty.toUpperCase()}. ${difficultyHint}
+
+Tipos de drop y cómo preguntar:
+- definition: "¿Qué concepto describe...?" o "¿Cuál es la característica clave de...?"
+- ruptura: "¿Cuál es la idea contraintuitiva en...?" o presenta la creencia común como trampa
+- puente: "¿Qué conecta X con Y?"
+- operativo: "¿Qué método/paso aplica cuando...?"
+- code: "¿Qué hace este fragmento?" o "¿Por qué este código falla?"
+
+Responde ÚNICAMENTE con JSON válido:
 {
-  "question": "tu pregunta parafraseada",
+  "question": "pregunta clara y sin ambigüedad",
   "options": ["respuesta correcta", "distractor 1", "distractor 2", "distractor 3"],
   "correctIndex": 0,
-  "explanation": "explicación breve de por qué es correcta",
-  "example": "ejemplo práctico o caso de uso"
+  "explanation": "explicación breve"
 }`;
 
-  const userPrompt = `Genera una pregunta de quiz para este concepto:
+  const userPrompt = `Genera una pregunta para este drop:
 - Título: ${drop.title}
-- Contenido: ${drop.content}
 - Tipo: ${drop.type}
-- Tags: ${drop.tags.join(', ')}
-
-Recuerda: La pregunta NO debe ser exactamente el título. Usa otras palabras.`;
+- Contenido: ${drop.content}
+- Tags: ${drop.tags.join(', ')}`;
 
   try {
     const response = await fetch(GROQ_API_URL, {
@@ -449,65 +456,81 @@ Recuerda: La pregunta NO debe ser exactamente el título. Usa otras palabras.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.8,
-        max_tokens: 600,
+        temperature: 0.75,
+        max_tokens: 500,
       }),
     });
 
-    if (!response.ok) {
-      throw new Error('Groq API error');
-    }
+    if (!response.ok) throw new Error('Groq API error');
 
     const data: GroqResponse = await response.json();
-    const content = data.choices[0]?.message?.content || '';
-    
-    let parsed: QuizQuestion | null = null;
+    const raw = data.choices[0]?.message?.content || '';
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+    let parsed: { question: string; options: string[]; correctIndex: number; explanation: string } | null = null;
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(cleaned);
     } catch {
-      return generateFallbackQuizQuestion(drop);
+      return generateFallbackQuizQuestion(drop, difficulty);
     }
 
-    if (!parsed || 
-        typeof parsed.question !== 'string' || 
-        !Array.isArray(parsed.options) || 
-        typeof parsed.correctIndex !== 'number' ||
-        typeof parsed.explanation !== 'string' ||
-        typeof parsed.example !== 'string') {
-      return generateFallbackQuizQuestion(drop);
+    // Validación — Bug fix #9: example es opcional
+    if (
+      !parsed ||
+      typeof parsed.question !== 'string' ||
+      !Array.isArray(parsed.options) ||
+      typeof parsed.correctIndex !== 'number' ||
+      typeof parsed.explanation !== 'string'
+    ) {
+      return generateFallbackQuizQuestion(drop, difficulty);
     }
 
     if (parsed.options.length !== 4) {
-      return generateFallbackQuizQuestion(drop);
+      return generateFallbackQuizQuestion(drop, difficulty);
     }
 
+    // Bug fix #4: si correctIndex inválido → fallback, no colapsar a 0
     if (parsed.correctIndex < 0 || parsed.correctIndex > 3) {
-      parsed.correctIndex = 0;
+      return generateFallbackQuizQuestion(drop, difficulty);
     }
 
     return {
-      ...parsed,
       dropId: drop.id,
+      type: 'multiple-choice',
+      difficulty,
+      question: parsed.question,
+      answer: parsed.options[parsed.correctIndex] ?? drop.title,
+      explanation: parsed.explanation,
+      options: parsed.options,
+      correctIndex: parsed.correctIndex,
     };
   } catch {
-    return generateFallbackQuizQuestion(drop);
+    return generateFallbackQuizQuestion(drop, difficulty);
   }
 }
 
 function generateFallbackQuizQuestion(
-  drop: { id: string; title: string; content: string; type: string; tags: string[] }
+  drop: { id: string; title: string; content: string; type: string; tags: string[] },
+  difficulty: Difficulty = 'medio'
 ): QuizQuestion {
+  // Bug fix #3: calcular correctIndex DESPUÉS de shuffle
+  const options = [
+    drop.title,
+    'Otro concepto relacionado',
+    'Una herramienta diferente',
+    'Un proceso alternativo',
+  ];
+  const shuffled = [...options].sort(() => Math.random() - 0.5);
+  const correctIndex = shuffled.indexOf(drop.title);
+
   return {
-    question: `¿Qué concepto se describe como: "${drop.content.substring(0, 120)}..."?`,
-    options: [
-      drop.title,
-      'Otro concepto relacionado',
-      'Una herramienta diferente',
-      'Un proceso alternativo',
-    ].sort(() => Math.random() - 0.5),
-    correctIndex: 0,
-    explanation: 'Esta es la respuesta correcta basada en el contenido del drop.',
-    example: 'Ejemplo: Aplicando este concepto en tu trabajo diario...',
     dropId: drop.id,
+    type: 'multiple-choice',
+    difficulty,
+    question: `¿Qué concepto se describe como: "${drop.content.substring(0, 120)}..."?`,
+    answer: drop.title,
+    explanation: drop.content.substring(0, 200),
+    options: shuffled,
+    correctIndex,
   };
 }
