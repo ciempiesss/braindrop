@@ -12,6 +12,7 @@ import {
   PAGE_SIZE,
   MAX_SESSION,
 } from '@/lib/feedAlgorithm';
+import { structureRawThought } from '@/lib/groq';
 
 const SETTINGS_KEY = 'braindrop_settings';
 
@@ -40,6 +41,7 @@ export function Feed({
   const [showCompose, setShowCompose] = useState(false);
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [quickText, setQuickText] = useState('');
+  const [quickLoading, setQuickLoading] = useState(false);
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
   const [refreshToast, setRefreshToast] = useState<string | null>(null);
 
@@ -149,18 +151,26 @@ export function Feed({
     setTimeout(() => setRefreshToast(null), 2500);
   }, [addDrop]);
 
-  const handleQuickCapture = useCallback(() => {
+  const handleQuickCapture = useCallback(async () => {
     const text = quickText.trim();
-    if (!text) return;
-    const lines = text.split('\n');
-    const title = lines[0].slice(0, 200);
-    const content = lines.slice(1).join('\n').trim() || title;
-    addDrop({ title, content, type: 'operativo', tags: [] });
+    if (!text || quickLoading) return;
+    setQuickLoading(true);
+    try {
+      const drop = await structureRawThought(text);
+      addDrop({ title: drop.title, content: drop.content, type: drop.type, tags: drop.tags, codeSnippet: drop.codeSnippet });
+    } catch {
+      const lines = text.split('\n');
+      const title = lines[0].slice(0, 200);
+      const content = lines.slice(1).join('\n').trim() || title;
+      addDrop({ title, content, type: 'definition', tags: [] });
+    } finally {
+      setQuickLoading(false);
+    }
     setRefreshToast('✓ Drop guardado');
     setTimeout(() => setRefreshToast(null), 2500);
     setQuickText('');
     setShowQuickCapture(false);
-  }, [quickText, addDrop]);
+  }, [quickText, quickLoading, addDrop]);
 
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
@@ -290,10 +300,10 @@ export function Feed({
               </button>
               <button
                 onClick={handleQuickCapture}
-                disabled={!quickText.trim()}
+                disabled={!quickText.trim() || quickLoading}
                 className="flex-1 py-2.5 text-[13px] font-bold rounded-xl transition-all bg-[#7c3aed] text-white hover:bg-[#6d28d9] disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                Drop →
+                {quickLoading ? 'Estructurando...' : 'Drop →'}
               </button>
             </div>
           </div>

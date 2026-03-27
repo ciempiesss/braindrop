@@ -45,7 +45,7 @@ const DROP_TYPES: DropType[] = ['definition', 'ruptura', 'puente', 'operativo', 
 export function Compose({ onSubmit, collectionId }: ComposeProps) {
   const { collections } = useBrainDrop();
   const [isMinimized, setIsMinimized] = useState(loadMinimizedState);
-  const [mode, setMode] = useState<'manual' | 'ai'>('manual');
+  const [mode, setMode] = useState<'manual' | 'ai'>('ai');
 
   // Manual
   const [title, setTitle] = useState('');

@@ -134,6 +134,86 @@ Genera los drops que consideres necesarios para cubrir este tema con profundidad
   }
 }
 
+export async function structureRawThought(rawText: string): Promise<GeneratedDrop> {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+
+  if (!apiKey || apiKey === 'your_groq_api_key_here') {
+    return structureRawFallback(rawText);
+  }
+
+  const systemPrompt = `Conviertes pensamientos crudos en drops de conocimiento para una app de aprendizaje con repetición espaciada.
+
+Un drop tiene 5 tipos:
+- "definition": ancla un concepto con precisión
+- "ruptura": derrumba una intuición común, revela algo inesperado
+- "puente": conecta dos dominios distintos
+- "operativo": protocolo o pasos concretos
+- "code": el núcleo es código (incluye codeSnippet)
+
+Tu trabajo:
+1. Detectar el tipo más adecuado para el pensamiento
+2. Generar un título conciso y preciso (máx 100 chars)
+3. Expandir el contenido: 2-5 oraciones densas, sin relleno. Enriquece sin inventar.
+4. Extraer 3-5 tags relevantes en minúsculas
+
+Responde ÚNICAMENTE con JSON válido:
+{"title":"string","content":"string","type":"definition|ruptura|puente|operativo|code","tags":["string"],"codeSnippet":null}`;
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'moonshotai/kimi-k2-instruct-0905',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Estructura este pensamiento en un drop:\n\n"${rawText}"` },
+        ],
+        temperature: 0.6,
+        max_tokens: 600,
+      }),
+    });
+
+    if (!response.ok) throw new Error('Groq API error');
+
+    const data: GroqResponse = await response.json();
+    const raw = data.choices[0]?.message?.content || '';
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+    const parsed = JSON.parse(cleaned);
+    const VALID_TYPES = ['definition', 'ruptura', 'puente', 'operativo', 'code'];
+
+    if (
+      typeof parsed.title !== 'string' ||
+      typeof parsed.content !== 'string' ||
+      !VALID_TYPES.includes(parsed.type) ||
+      !Array.isArray(parsed.tags)
+    ) {
+      return structureRawFallback(rawText);
+    }
+
+    return {
+      title: parsed.title.slice(0, 200),
+      content: parsed.content.slice(0, 5000),
+      type: parsed.type,
+      tags: parsed.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30)),
+      codeSnippet: parsed.codeSnippet ? String(parsed.codeSnippet) : undefined,
+    };
+  } catch {
+    return structureRawFallback(rawText);
+  }
+}
+
+function structureRawFallback(rawText: string): GeneratedDrop {
+  const lines = rawText.trim().split('\n');
+  const title = lines[0].trim().slice(0, 100);
+  const content = lines.length > 1 ? lines.slice(1).join('\n').trim() || title : title;
+  return { title, content, type: 'definition', tags: [] };
+}
+
 export async function editDropWithAI(
   drop: { title: string; content: string; type: string; tags: string[]; codeSnippet?: string },
   instruction: string
