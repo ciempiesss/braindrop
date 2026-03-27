@@ -42,6 +42,8 @@ export function Feed({
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [quickText, setQuickText] = useState('');
   const [quickLoading, setQuickLoading] = useState(false);
+  const [generatedDrops, setGeneratedDrops] = useState<import('@/lib/groq').GeneratedDrop[]>([]);
+  const [selectedDrops, setSelectedDrops] = useState<Set<number>>(new Set());
   const [aiChatDrop, setAiChatDrop] = useState<Drop | null>(null);
   const [refreshToast, setRefreshToast] = useState<string | null>(null);
 
@@ -151,26 +153,35 @@ export function Feed({
     setTimeout(() => setRefreshToast(null), 2500);
   }, [addDrop]);
 
-  const handleQuickCapture = useCallback(async () => {
+  const handleQuickGenerate = useCallback(async () => {
     const text = quickText.trim();
     if (!text || quickLoading) return;
     setQuickLoading(true);
     try {
       const drops = await generateDropsFromTopic(text, '');
-      drops.forEach(drop => addDrop({
-        title: drop.title, content: drop.content, type: drop.type,
-        tags: drop.tags, codeSnippet: drop.codeSnippet,
-      }));
-      setRefreshToast(`✓ ${drops.length} drop${drops.length !== 1 ? 's' : ''} guardado${drops.length !== 1 ? 's' : ''}`);
+      setGeneratedDrops(drops);
+      setSelectedDrops(new Set(drops.map((_, i) => i)));
     } catch {
       setRefreshToast('Error generando drops');
+      setTimeout(() => setRefreshToast(null), 2500);
     } finally {
       setQuickLoading(false);
     }
+  }, [quickText, quickLoading]);
+
+  const handleSaveSelected = useCallback(() => {
+    const toSave = generatedDrops.filter((_, i) => selectedDrops.has(i));
+    toSave.forEach(drop => addDrop({
+      title: drop.title, content: drop.content, type: drop.type,
+      tags: drop.tags, codeSnippet: drop.codeSnippet,
+    }));
+    setRefreshToast(`✓ ${toSave.length} drop${toSave.length !== 1 ? 's' : ''} guardado${toSave.length !== 1 ? 's' : ''}`);
     setTimeout(() => setRefreshToast(null), 3000);
+    setGeneratedDrops([]);
+    setSelectedDrops(new Set());
     setQuickText('');
     setShowQuickCapture(false);
-  }, [quickText, quickLoading, addDrop]);
+  }, [generatedDrops, selectedDrops, addDrop]);
 
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
@@ -275,41 +286,130 @@ export function Feed({
       {showQuickCapture && (
         <div
           className="lg:hidden fixed inset-0 z-50"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowQuickCapture(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowQuickCapture(false);
+              setGeneratedDrops([]);
+              setSelectedDrops(new Set());
+            }
+          }}
         >
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-[#0f0f14] border-t border-white/5 rounded-t-2xl p-5 pb-10"
-            style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.7)' }}
+            className="absolute bottom-0 left-0 right-0 bg-[#0f0f14] border-t border-white/5 rounded-t-2xl"
+            style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.7)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
           >
-            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-5" />
-            <input
-              autoFocus
-              type="text"
-              value={quickText}
-              onChange={(e) => setQuickText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCapture(); }}
-              placeholder="Tema o concepto..."
-              className="w-full bg-black/30 border border-white/10 rounded-2xl px-5 py-4 text-[#e7e9ea] text-[17px] placeholder:text-white/20 focus:outline-none focus:border-[#7c3aed]/50 mb-4"
-            />
-            <button
-              onClick={handleQuickCapture}
-              disabled={!quickText.trim() || quickLoading}
-              className="w-full py-4 text-[15px] font-bold rounded-2xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{
-                background: quickText.trim() && !quickLoading ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : '#1a1a22',
-                color: quickText.trim() && !quickLoading ? '#fff' : 'rgba(255,255,255,0.2)',
-                boxShadow: quickText.trim() && !quickLoading ? '0 4px 20px rgba(124,58,237,0.4)' : 'none',
-              }}
-            >
-              {quickLoading ? 'Generando drops...' : 'Crear drops con IA'}
-            </button>
-            <button
-              onClick={() => { setShowQuickCapture(false); setShowCompose(true); }}
-              className="w-full mt-3 py-2 text-[12px] text-white/20 hover:text-white/40 transition-colors"
-            >
-              Crear manualmente
-            </button>
+            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-4 mb-4 flex-shrink-0" />
+
+            {/* Estado: input */}
+            {generatedDrops.length === 0 && (
+              <div className="px-5 pb-10 flex flex-col gap-4">
+                <input
+                  autoFocus
+                  type="text"
+                  value={quickText}
+                  onChange={(e) => setQuickText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickGenerate(); }}
+                  placeholder="Tema o concepto..."
+                  className="w-full bg-black/30 border border-white/10 rounded-2xl px-5 py-4 text-[#e7e9ea] text-[17px] placeholder:text-white/20 focus:outline-none focus:border-[#7c3aed]/50"
+                />
+                <button
+                  onClick={handleQuickGenerate}
+                  disabled={!quickText.trim() || quickLoading}
+                  className="w-full py-4 text-[15px] font-bold rounded-2xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    background: quickText.trim() && !quickLoading ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : '#1a1a22',
+                    color: quickText.trim() && !quickLoading ? '#fff' : 'rgba(255,255,255,0.2)',
+                    boxShadow: quickText.trim() && !quickLoading ? '0 4px 20px rgba(124,58,237,0.4)' : 'none',
+                  }}
+                >
+                  {quickLoading ? 'Generando...' : 'Crear drops con IA'}
+                </button>
+                <button
+                  onClick={() => { setShowQuickCapture(false); setShowCompose(true); }}
+                  className="w-full py-2 text-[12px] text-white/20"
+                >
+                  Crear manualmente
+                </button>
+              </div>
+            )}
+
+            {/* Estado: revisar drops generados */}
+            {generatedDrops.length > 0 && (
+              <>
+                <div className="px-5 pb-2 flex items-center justify-between flex-shrink-0">
+                  <span className="text-[13px] text-white/40">{selectedDrops.size} de {generatedDrops.length} seleccionados</span>
+                  <button
+                    onClick={() => selectedDrops.size === generatedDrops.length
+                      ? setSelectedDrops(new Set())
+                      : setSelectedDrops(new Set(generatedDrops.map((_, i) => i)))
+                    }
+                    className="text-[12px] text-[#7c3aed]"
+                  >
+                    {selectedDrops.size === generatedDrops.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                  </button>
+                </div>
+
+                <div className="overflow-y-auto flex-1 px-5 pb-2 space-y-2">
+                  {generatedDrops.map((drop, i) => {
+                    const selected = selectedDrops.has(i);
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedDrops(prev => {
+                          const next = new Set(prev);
+                          selected ? next.delete(i) : next.add(i);
+                          return next;
+                        })}
+                        className="rounded-2xl p-4 cursor-pointer transition-all relative"
+                        style={{
+                          background: selected ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${selected ? 'rgba(124,58,237,0.35)' : 'rgba(255,255,255,0.06)'}`,
+                          opacity: selected ? 1 : 0.45,
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] text-white/30 uppercase tracking-wider">{drop.type}</span>
+                            <p className="text-[14px] font-semibold text-white leading-snug mt-0.5">{drop.title}</p>
+                            <p className="text-[12px] text-white/40 mt-1 line-clamp-2 leading-relaxed">{drop.content}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setGeneratedDrops(prev => prev.filter((_, idx) => idx !== i));
+                              setSelectedDrops(prev => {
+                                const next = new Set<number>();
+                                prev.forEach(idx => { if (idx < i) next.add(idx); else if (idx > i) next.add(idx - 1); });
+                                return next;
+                              });
+                            }}
+                            className="text-white/20 hover:text-red-400 text-[16px] flex-shrink-0 px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="px-5 pb-10 pt-3 flex-shrink-0">
+                  <button
+                    onClick={handleSaveSelected}
+                    disabled={selectedDrops.size === 0}
+                    className="w-full py-4 text-[15px] font-bold rounded-2xl transition-all disabled:opacity-30"
+                    style={{
+                      background: selectedDrops.size > 0 ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : '#1a1a22',
+                      color: selectedDrops.size > 0 ? '#fff' : 'rgba(255,255,255,0.2)',
+                      boxShadow: selectedDrops.size > 0 ? '0 4px 20px rgba(124,58,237,0.4)' : 'none',
+                    }}
+                  >
+                    Guardar {selectedDrops.size === generatedDrops.length ? 'todos' : `(${selectedDrops.size})`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
