@@ -154,7 +154,7 @@ export function Compose({ onSubmit, collectionId }: ComposeProps) {
   // ─── Expanded ───────────────────────────────────────────────────────────────
   return (
     <div
-      className="mx-4 my-3 rounded-2xl overflow-hidden"
+      className="mx-4 my-3 rounded-2xl"
       style={{ background: NEU_BASE, boxShadow: NEU_RAISED }}
     >
       {/* Header: mode toggle + minimizar */}
