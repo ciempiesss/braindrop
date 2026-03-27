@@ -12,7 +12,7 @@ import {
   PAGE_SIZE,
   MAX_SESSION,
 } from '@/lib/feedAlgorithm';
-import { structureRawThought } from '@/lib/groq';
+import { generateDropsFromTopic } from '@/lib/groq';
 
 const SETTINGS_KEY = 'braindrop_settings';
 
@@ -156,18 +156,18 @@ export function Feed({
     if (!text || quickLoading) return;
     setQuickLoading(true);
     try {
-      const drop = await structureRawThought(text);
-      addDrop({ title: drop.title, content: drop.content, type: drop.type, tags: drop.tags, codeSnippet: drop.codeSnippet });
+      const drops = await generateDropsFromTopic(text, '');
+      drops.forEach(drop => addDrop({
+        title: drop.title, content: drop.content, type: drop.type,
+        tags: drop.tags, codeSnippet: drop.codeSnippet,
+      }));
+      setRefreshToast(`✓ ${drops.length} drop${drops.length !== 1 ? 's' : ''} guardado${drops.length !== 1 ? 's' : ''}`);
     } catch {
-      const lines = text.split('\n');
-      const title = lines[0].slice(0, 200);
-      const content = lines.slice(1).join('\n').trim() || title;
-      addDrop({ title, content, type: 'definition', tags: [] });
+      setRefreshToast('Error generando drops');
     } finally {
       setQuickLoading(false);
     }
-    setRefreshToast('✓ Drop guardado');
-    setTimeout(() => setRefreshToast(null), 2500);
+    setTimeout(() => setRefreshToast(null), 3000);
     setQuickText('');
     setShowQuickCapture(false);
   }, [quickText, quickLoading, addDrop]);
@@ -278,34 +278,38 @@ export function Feed({
           onClick={(e) => { if (e.target === e.currentTarget) setShowQuickCapture(false); }}
         >
           <div className="absolute inset-0 bg-black/60" />
-          <div className="absolute bottom-0 left-0 right-0 bg-[#12121a] border-t border-[#2f3336] rounded-t-2xl p-5 pb-8"
-            style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.6)' }}
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-[#0f0f14] border-t border-white/5 rounded-t-2xl p-5 pb-10"
+            style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.7)' }}
           >
-            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-4" />
-            <textarea
+            <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mb-5" />
+            <input
               autoFocus
+              type="text"
               value={quickText}
               onChange={(e) => setQuickText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleQuickCapture(); }}
-              placeholder="¿Qué capturo? Primera línea = título..."
-              rows={4}
-              className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-[#e7e9ea] text-[15px] placeholder:text-white/25 focus:outline-none focus:border-[#7c3aed]/60 resize-none mb-3"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCapture(); }}
+              placeholder="Tema o concepto..."
+              className="w-full bg-black/30 border border-white/10 rounded-2xl px-5 py-4 text-[#e7e9ea] text-[17px] placeholder:text-white/20 focus:outline-none focus:border-[#7c3aed]/50 mb-4"
             />
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setShowQuickCapture(false); setShowCompose(true); }}
-                className="flex-1 py-2.5 text-[13px] text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-xl"
-              >
-                Más opciones ↓
-              </button>
-              <button
-                onClick={handleQuickCapture}
-                disabled={!quickText.trim() || quickLoading}
-                className="flex-1 py-2.5 text-[13px] font-bold rounded-xl transition-all bg-[#7c3aed] text-white hover:bg-[#6d28d9] disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {quickLoading ? 'Estructurando...' : 'Drop →'}
-              </button>
-            </div>
+            <button
+              onClick={handleQuickCapture}
+              disabled={!quickText.trim() || quickLoading}
+              className="w-full py-4 text-[15px] font-bold rounded-2xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{
+                background: quickText.trim() && !quickLoading ? 'linear-gradient(135deg, #7c3aed, #5b21b6)' : '#1a1a22',
+                color: quickText.trim() && !quickLoading ? '#fff' : 'rgba(255,255,255,0.2)',
+                boxShadow: quickText.trim() && !quickLoading ? '0 4px 20px rgba(124,58,237,0.4)' : 'none',
+              }}
+            >
+              {quickLoading ? 'Generando drops...' : 'Crear drops con IA'}
+            </button>
+            <button
+              onClick={() => { setShowQuickCapture(false); setShowCompose(true); }}
+              className="w-full mt-3 py-2 text-[12px] text-white/20 hover:text-white/40 transition-colors"
+            >
+              Crear manualmente
+            </button>
           </div>
         </div>
       )}
