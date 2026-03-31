@@ -180,6 +180,15 @@ export function Feed({
     [addDrop]
   );
 
+  const handleDeleteDrop = useCallback(
+    async (id: string) => {
+      await deleteDrop(id);
+      setRefreshToast('Drop eliminado');
+      setTimeout(() => setRefreshToast(null), 2500);
+    },
+    [deleteDrop]
+  );
+
   const handleQuickGenerate = useCallback(async () => {
     const text = quickText.trim();
     if (!text || quickLoading) return;
@@ -554,7 +563,7 @@ export function Feed({
                 onAI={() => setAiChatDrop(drop)}
                 onToggleLike={toggleLike}
                 onMarkViewed={markAsViewed}
-                onDelete={deleteDrop}
+                onDelete={handleDeleteDrop}
                 onEdit={(updatedDrop) => updateDrop(updatedDrop.id, updatedDrop)}
               />
             ))}

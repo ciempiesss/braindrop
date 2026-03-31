@@ -231,7 +231,9 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  onDelete?.(drop.id);
+                  if (window.confirm('Eliminar este drop? Esta accion no se puede deshacer.')) {
+                    onDelete?.(drop.id);
+                  }
                 }}
                 className="rounded-full border border-rose-400/20 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
               >
@@ -316,7 +318,9 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  onDelete?.(drop.id);
+                  if (window.confirm('Eliminar este drop? Esta accion no se puede deshacer.')) {
+                    onDelete?.(drop.id);
+                  }
                 }}
                 className="rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-[12px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
               >
