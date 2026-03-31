@@ -35,7 +35,16 @@ export function Feed({
   selectedTag?: string | null;
   onClearTagFilter?: () => void;
 }) {
-  const { drops, addDrop, toggleLike, markAsViewed, deleteDrop, updateDrop, reviewDrop, seedIds } =
+  const {
+    drops,
+    addDrop,
+    toggleLike,
+    markAsViewed,
+    deleteDrop,
+    updateDrop,
+    seedIds,
+    dropPreferences,
+  } =
     useBrainDrop();
   const [activeTab, setActiveTab] = useState('para-ti');
   const [showCompose, setShowCompose] = useState(false);
@@ -61,14 +70,21 @@ export function Feed({
   const rebuildPool = useCallback(
     (dropsSnapshot: Drop[], tag: string | null | undefined, seed: number) => {
       const visibleCollections = loadVisibleCollections();
-      const pool = buildSessionPool(dropsSnapshot, seed, tag, visibleCollections, seedIds);
+      const pool = buildSessionPool(
+        dropsSnapshot,
+        seed,
+        tag,
+        visibleCollections,
+        seedIds,
+        dropPreferences
+      );
       poolIdsRef.current = pool.map((drop) => drop.id);
       setSessionPage(1);
       setPoolVersion((value) => value + 1);
       loadingNextPageRef.current = false;
       sentinelArmedRef.current = true;
     },
-    [seedIds]
+    [seedIds, dropPreferences]
   );
 
   const startNewSession = useCallback(
@@ -217,12 +233,12 @@ export function Feed({
   const handleTouchEnd = useCallback(() => {
     setIsPulling(false);
     if (currentPullDistance.current > 100 && activeTab === 'para-ti') {
-      const stats = getSessionStats(drops);
+      const stats = getSessionStats(drops, dropPreferences);
       const message =
         stats.unseen > 0
           ? `${stats.unseen} drops nuevos`
-          : stats.dueForReview > 0
-            ? `${stats.dueForReview} por repasar hoy`
+          : stats.liked + stats.disliked > 0
+            ? `${stats.liked} me gustaron, ${stats.disliked} no me gustaron`
             : 'Feed actualizado';
 
       setRefreshToast(message);
@@ -230,7 +246,7 @@ export function Feed({
       setTimeout(() => setRefreshToast(null), 3000);
     }
     currentPullDistance.current = 0;
-  }, [drops, activeTab, selectedTag, startNewSession]);
+  }, [drops, activeTab, selectedTag, startNewSession, dropPreferences]);
 
   return (
     <div className="flex flex-col bg-[radial-gradient(circle_at_top_left,rgba(98,121,170,0.14),transparent_32%),linear-gradient(180deg,#0d1118_0%,#10151d_100%)]">
@@ -540,7 +556,6 @@ export function Feed({
                 onMarkViewed={markAsViewed}
                 onDelete={deleteDrop}
                 onEdit={(updatedDrop) => updateDrop(updatedDrop.id, updatedDrop)}
-                onReview={reviewDrop}
               />
             ))}
           </div>

@@ -41,7 +41,7 @@ export function Sidebar({ activeTab, onTabChange, dropsForReview, onClose }: Sid
       <nav className="flex-1 px-3 pb-4">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
-          const showBadge = item.id === 'quiz' && dropsForReview > 0;
+          const showBadge = item.id === 'progress' && dropsForReview > 0;
 
           return (
             <button

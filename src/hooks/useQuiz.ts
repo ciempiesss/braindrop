@@ -33,11 +33,9 @@ function selectDrops(drops: Drop[], config: QuizConfig): Drop[] {
     pool = pool.filter(d => d.collectionId === collectionId);
   }
 
-  const now = new Date();
-  const due = pool.filter(d => d.viewed && new Date(d.nextReviewDate) <= now);
-  const rest = shuffleArray(pool.filter(d => !due.includes(d)));
-
-  return shuffleArray([...due, ...rest]).slice(0, count);
+  const unseen = shuffleArray(pool.filter(d => !d.viewed));
+  const viewed = shuffleArray(pool.filter(d => d.viewed));
+  return shuffleArray([...unseen, ...viewed]).slice(0, count);
 }
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
@@ -90,7 +88,7 @@ function defaultConfig(): QuizConfig {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useQuiz(): UseQuizReturn {
-  const { drops, reviewDrop } = useBrainDrop();
+  const { drops, setDropPreference, dropPreferences } = useBrainDrop();
 
   const [phase, setPhase] = useState<QuizPhase>('start');
   const [config, setConfigState] = useState<QuizConfig>(defaultConfig);
@@ -110,10 +108,9 @@ export function useQuiz(): UseQuizReturn {
     if (config.collectionId) {
       pool = pool.filter(d => d.collectionId === config.collectionId);
     }
-    const now = new Date();
-    const due = pool.filter(d => d.viewed && new Date(d.nextReviewDate) <= now).length;
-    return { availableDrops: pool.length, dueDrops: due };
-  }, [drops, config.collectionId]);
+    const pending = pool.filter(d => d.viewed && !dropPreferences[d.id]).length;
+    return { availableDrops: pool.length, dueDrops: pending };
+  }, [drops, config.collectionId, dropPreferences]);
 
   const setConfig = useCallback((partial: Partial<QuizConfig>) => {
     setConfigState(prev => ({ ...prev, ...partial }));
@@ -193,11 +190,12 @@ export function useQuiz(): UseQuizReturn {
 
     setStreakCount(prev => correct ? prev + 1 : 0);
 
-    // Solo actualizar SM-2 si hay drop asociado
+    // Convertimos el resultado del quiz en preferencia para aprender tus gustos.
     if (q.dropId) {
-      reviewDrop(q.dropId, resolvedQuality);
+      const preference = resolvedQuality >= 4 ? 'like' : resolvedQuality <= 2 ? 'dislike' : null;
+      setDropPreference(q.dropId, preference);
     }
-  }, [questions, currentIndex, reviewDrop]);
+  }, [questions, currentIndex, setDropPreference]);
 
   const nextQuestion = useCallback(() => {
     const next = currentIndex + 1;

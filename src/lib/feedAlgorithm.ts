@@ -77,10 +77,9 @@ export function buildSessionPool(
   seed: number,
   selectedTag?: string | null,
   visibleCollections?: string[],
-  seedIds?: Set<string>
+  seedIds?: Set<string>,
+  preferences?: Record<string, 'like' | 'dislike'>
 ): Drop[] {
-  const now = new Date();
-
   let pool = drops;
   if (selectedTag) {
     pool = pool.filter((drop) => drop.tags.includes(selectedTag));
@@ -97,25 +96,20 @@ export function buildSessionPool(
   const bucketARest = seededShuffle(bucketAAll.filter((drop) => !userBoostIds.has(drop.id)), seed);
   const bucketA = [...bucketAUser, ...bucketARest];
 
-  const bucketBAll = pool.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now);
-  const bucketBUrgent = seededShuffle(
-    bucketBAll.filter((drop) => drop.status === 'relearn' || drop.easeFactor < 1.8),
+  const prefs = preferences ?? {};
+  const bucketB = seededShuffle(
+    pool.filter((drop) => prefs[drop.id] === 'like'),
     seed + 1
   );
-  const bucketBNormal = seededShuffle(
-    bucketBAll.filter((drop) => drop.status !== 'relearn' && drop.easeFactor >= 1.8),
-    seed + 1
-  );
-  const bucketB = [...bucketBUrgent, ...bucketBNormal];
 
   const bucketAIds = new Set(bucketA.map((drop) => drop.id));
   const bucketBIds = new Set(bucketB.map((drop) => drop.id));
+
   const bucketC = seededShuffle(
     pool.filter(
       (drop) =>
         drop.viewed === true &&
-        drop.liked === true &&
-        new Date(drop.nextReviewDate) > now &&
+        prefs[drop.id] !== 'dislike' &&
         !bucketAIds.has(drop.id) &&
         !bucketBIds.has(drop.id)
     ),
@@ -123,19 +117,29 @@ export function buildSessionPool(
   );
 
   const usedIds = new Set([...bucketAIds, ...bucketBIds, ...bucketC.map((drop) => drop.id)]);
-  const bucketD = seededShuffle(
-    pool.filter((drop) => !usedIds.has(drop.id)),
+  const bucketDPrimary = seededShuffle(
+    pool.filter((drop) => prefs[drop.id] === 'dislike' && !usedIds.has(drop.id)),
     seed + 3
   );
 
-  const ordered = interleaveBuckets([bucketA, bucketBUrgent, bucketBNormal, bucketC, bucketD]);
+  const usedWithDisliked = new Set([...usedIds, ...bucketDPrimary.map((drop) => drop.id)]);
+  const bucketD = seededShuffle(
+    pool.filter((drop) => !usedWithDisliked.has(drop.id)),
+    seed + 4
+  );
+
+  const ordered = interleaveBuckets([bucketA, bucketB, bucketC, bucketD, bucketDPrimary]);
   return diversify(ordered);
 }
 
-export function getSessionStats(drops: Drop[]): { unseen: number; dueForReview: number } {
-  const now = new Date();
+export function getSessionStats(
+  drops: Drop[],
+  preferences?: Record<string, 'like' | 'dislike'>
+): { unseen: number; liked: number; disliked: number } {
+  const prefs = preferences ?? {};
   return {
     unseen: drops.filter((drop) => drop.viewed !== true).length,
-    dueForReview: drops.filter((drop) => drop.viewed === true && new Date(drop.nextReviewDate) <= now).length,
+    liked: Object.values(prefs).filter((value) => value === 'like').length,
+    disliked: Object.values(prefs).filter((value) => value === 'dislike').length,
   };
 }

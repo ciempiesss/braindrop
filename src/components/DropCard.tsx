@@ -16,7 +16,6 @@ interface DropCardProps {
   onMarkViewed?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (drop: Drop) => void;
-  onReview?: (id: string, quality: number) => void;
 }
 
 const STORAGE_KEY = 'braindrop_settings';
@@ -106,12 +105,10 @@ function hue(tag: string): number {
   return Math.abs(hash) % 360;
 }
 
-function mastery(drop: Drop): string {
-  if (!drop.viewed || drop.repetitionCount === 0) return 'Sin repaso';
-  if (drop.status === 'relearn') return 'Repaso urgente';
-  if (drop.interval >= 21 && drop.easeFactor > 2.5) return 'Bien fijado';
-  if (drop.interval >= 7) return 'En consolidacion';
-  return 'En practica';
+function preferenceLabel(value?: 'like' | 'dislike'): string {
+  if (value === 'like') return 'Me gusto';
+  if (value === 'dislike') return 'No me gusto';
+  return 'Sin opinion';
 }
 
 function primaryLabel(type: Drop['type']): string {
@@ -141,19 +138,17 @@ function CodeBlock({ code }: { code?: string }) {
   );
 }
 
-export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit, onReview }: DropCardProps) {
+export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const [expanded, setExpanded] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [reviewDone, setReviewDone] = useState<'easy' | 'hard' | null>(null);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [aiInstruction, setAiInstruction] = useState('');
   const [aiEditing, setAiEditing] = useState(false);
   const [aiError, setAiError] = useState('');
   const [editForm, setEditForm] = useState({ title: drop.title, content: drop.content, type: drop.type, tags: drop.tags.join(', '), codeSnippet: drop.codeSnippet || '' });
 
-  const { toggleLike: contextToggleLike } = useBrainDrop();
+  const { toggleLike: contextToggleLike, dropPreferences, setDropPreference } = useBrainDrop();
   const cardRef = useRef<HTMLElement>(null);
   const style = TYPE_STYLES[drop.type];
   const meta = getMeta(drop);
@@ -181,11 +176,10 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
   useEffect(() => {
     setExpanded(false);
-    setShowDeleteConfirm(false);
-    setReviewDone(null);
   }, [drop.id]);
 
   const toggleLike = onToggleLike || contextToggleLike;
+  const preference = dropPreferences[drop.id];
   const contentHtml = renderInline(detail || drop.content);
 
   return (
@@ -208,8 +202,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">{meta.time}</span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{meta.load}</span>
-          {expanded ? <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{mastery(drop)}</span> : null}
-          {!expanded && reviewDone ? <span className="ml-auto text-[11px] text-white/35">{reviewDone === 'easy' ? 'Listo' : 'Repasar'}</span> : null}
+          {expanded ? <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{preferenceLabel(preference)}</span> : null}
         </div>
 
         <h3 className="font-display font-black tracking-[-0.04em] text-white" style={{ fontSize: `calc(${expanded ? 29 : 24}px * ${fontScale})`, lineHeight: expanded ? '1.03' : '1.08' }}>
@@ -222,8 +215,8 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         </p>
 
         {!expanded ? (
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-wrap gap-2">
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap gap-2">
               {drop.tags.slice(0, 2).map((tag) => (
                 <span
                   key={tag}
@@ -233,8 +226,19 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   #{tag}
                 </span>
               ))}
+              </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete?.(drop.id);
+                }}
+                className="rounded-full border border-rose-400/20 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
+              >
+                Eliminar
+              </button>
+              <span className="shrink-0 text-[12px] text-white/40">{formatRelativeDate(drop.createdAt)}</span>
             </div>
-            <span className="shrink-0 text-[12px] text-white/40">{formatRelativeDate(drop.createdAt)}</span>
           </div>
         ) : null}
 
@@ -277,70 +281,47 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
               </div>
             </div>
 
-            {onReview && drop.viewed ? (
-              <div className="mt-4">
-                {reviewDone ? (
-                  <p className="text-center text-[12px] text-white/45">{reviewDone === 'easy' ? 'Subido de nivel para el siguiente repaso.' : 'Lo dejamos listo para volver pronto.'}</p>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onReview(drop.id, 2);
-                        setReviewDone('hard');
-                      }}
-                      className="flex-1 rounded-2xl border border-rose-400/20 bg-rose-500/5 px-4 py-2.5 text-[13px] font-semibold text-rose-200 transition-colors hover:border-rose-300/40 hover:bg-rose-500/10"
-                    >
-                      {drop.status === 'relearn' ? 'Sin entender' : 'Dificil'}
-                    </button>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onReview(drop.id, 4);
-                        setReviewDone('easy');
-                      }}
-                      className="flex-1 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 px-4 py-2.5 text-[13px] font-semibold text-emerald-200 transition-colors hover:border-emerald-300/40 hover:bg-emerald-500/10"
-                    >
-                      {drop.status === 'relearn' ? 'Ya lo entendi' : drop.easeFactor > 2.8 ? 'Muy facil' : 'Facil'}
-                    </button>
-                  </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDropPreference(drop.id, preference === 'like' ? null : 'like');
+                }}
+                className={cn(
+                  'flex-1 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold transition-colors',
+                  preference === 'like'
+                    ? 'border-emerald-300/40 bg-emerald-500/20 text-emerald-100'
+                    : 'border-emerald-400/20 bg-emerald-500/5 text-emerald-200 hover:border-emerald-300/40 hover:bg-emerald-500/10'
                 )}
-              </div>
-            ) : null}
+              >
+                Me gusto
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDropPreference(drop.id, preference === 'dislike' ? null : 'dislike');
+                }}
+                className={cn(
+                  'flex-1 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold transition-colors',
+                  preference === 'dislike'
+                    ? 'border-rose-300/40 bg-rose-500/20 text-rose-100'
+                    : 'border-rose-400/20 bg-rose-500/5 text-rose-200 hover:border-rose-300/40 hover:bg-rose-500/10'
+                )}
+              >
+                No me gusto
+              </button>
+            </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/8 pt-4">
-              {showDeleteConfirm ? (
-                <span className="inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5">
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete?.(drop.id);
-                    }}
-                    className="text-[12px] font-semibold text-rose-200 transition-colors hover:text-rose-100"
-                  >
-                    Confirmar borrar
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setShowDeleteConfirm(false);
-                    }}
-                    className="text-[12px] text-white/45 transition-colors hover:text-white/75"
-                  >
-                    Cancelar
-                  </button>
-                </span>
-              ) : (
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-white/78 transition-colors hover:border-rose-300/25 hover:text-rose-100"
-                >
-                  Borrar
-                </button>
-              )}
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete?.(drop.id);
+                }}
+                className="rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-[12px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
+              >
+                Eliminar
+              </button>
 
               <button
                 onClick={(event) => {

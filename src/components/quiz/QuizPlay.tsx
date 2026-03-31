@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MultipleChoice } from './questions/MultipleChoice';
 import { TrueFalse } from './questions/TrueFalse';
 import { FillBlank } from './questions/FillBlank';
@@ -22,10 +22,14 @@ const STREAK_MESSAGES = ['¡Racha!', '¡Imparable!', '¡En zona!', '¡Fuego!'];
 export function QuizPlay({ quiz }: Props) {
   const { currentQuestion, currentDrop, progress, streakCount, submitAnswer, nextQuestion } = quiz;
 
-  // Estado local por pregunta
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(null);
-  const [flashcardRated, setFlashcardRated] = useState(false);
+  // Estado local indexado por pregunta para evitar reset con effect.
+  const [selectedIndexes, setSelectedIndexes] = useState<Record<number, number | null>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, boolean | null>>({});
+  const [flashcardRatedMap, setFlashcardRatedMap] = useState<Record<number, boolean>>({});
+
+  const selectedIndex = selectedIndexes[progress.current] ?? null;
+  const selectedAnswer = selectedAnswers[progress.current] ?? null;
+  const flashcardRated = flashcardRatedMap[progress.current] ?? false;
 
   const answered =
     currentQuestion?.type === 'flashcard'
@@ -34,40 +38,33 @@ export function QuizPlay({ quiz }: Props) {
       ? selectedAnswer !== null
       : selectedIndex !== null;
 
-  // Resetear estado local cuando cambia la pregunta
-  useEffect(() => {
-    setSelectedIndex(null);
-    setSelectedAnswer(null);
-    setFlashcardRated(false);
-  }, [progress.current]);
-
   if (!currentQuestion) return null;
 
   const dropTypeConfig = currentDrop ? DROP_TYPE_CONFIG[currentDrop.type] : null;
 
   function handleMCSelect(idx: number) {
     if (selectedIndex !== null) return;
-    setSelectedIndex(idx);
+    setSelectedIndexes((prev) => ({ ...prev, [progress.current]: idx }));
     const correct = idx === (currentQuestion!.correctIndex ?? 0);
     submitAnswer(correct);
   }
 
   function handleTFSelect(value: boolean) {
     if (selectedAnswer !== null) return;
-    setSelectedAnswer(value);
+    setSelectedAnswers((prev) => ({ ...prev, [progress.current]: value }));
     const correct = value === (currentQuestion!.isTrue ?? true);
     submitAnswer(correct);
   }
 
   function handleFillSelect(idx: number) {
     if (selectedIndex !== null) return;
-    setSelectedIndex(idx);
+    setSelectedIndexes((prev) => ({ ...prev, [progress.current]: idx }));
     const correct = idx === (currentQuestion!.correctIndex ?? 0);
     submitAnswer(correct);
   }
 
   function handleFlashcardRate(quality: number) {
-    setFlashcardRated(true);
+    setFlashcardRatedMap((prev) => ({ ...prev, [progress.current]: true }));
     submitAnswer(quality >= 4, quality);
   }
 

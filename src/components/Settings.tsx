@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Type, RotateCcw, Folder, Eye, EyeOff, Brain, Download, Upload, Target } from 'lucide-react';

@@ -61,12 +61,12 @@ function LoadingScreen() {
 }
 
 function AppContent() {
-  const { loading, getDropsForReview } = useBrainDrop();
+  const { loading, drops, dropPreferences } = useBrainDrop();
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
-  const dropsForReview = getDropsForReview().length;
+  const pendingFeedback = drops.filter((drop) => drop.viewed && !dropPreferences[drop.id]).length;
 
   const handleTagClick = (tag: string) => {
     setTagFilter(tag);
@@ -102,7 +102,7 @@ function AppContent() {
         <Sidebar
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as Tab)}
-          dropsForReview={dropsForReview}
+          dropsForReview={pendingFeedback}
           isOpen={true}
           onClose={() => {}}
         />
@@ -125,7 +125,7 @@ function AppContent() {
                 setActiveTab(tab as Tab);
                 setSidebarOpen(false);
               }}
-              dropsForReview={dropsForReview}
+              dropsForReview={pendingFeedback}
               isOpen={true}
               onClose={() => setSidebarOpen(false)}
             />
