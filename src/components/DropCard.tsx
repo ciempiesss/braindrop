@@ -6,6 +6,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { useViewedObserver } from '@/hooks/useViewedObserver';
 import { editDropWithAI } from '@/lib/groq';
+import { formatSubcategoryLabel } from '@/lib/dropContent';
 import { cn, formatRelativeDate } from '@/lib/utils';
 import type { Drop } from '@/types';
 
@@ -180,6 +181,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
   const toggleLike = onToggleLike || contextToggleLike;
   const preference = dropPreferences[drop.id];
+  const subcategory = formatSubcategoryLabel(drop.tags[0]);
   const contentHtml = renderInline(detail || drop.content);
 
   return (
@@ -199,6 +201,9 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
           <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.01em]', style.chip)}>
             <span className="opacity-80">{style.icon}</span>
             {style.label}
+          </span>
+          <span className="rounded-full border border-violet-300/20 bg-violet-500/12 px-3 py-1 text-[11px] font-semibold text-violet-100/90">
+            {subcategory}
           </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">{meta.time}</span>
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{meta.load}</span>

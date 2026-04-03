@@ -61,6 +61,8 @@ export function Feed({
   const [sessionPage, setSessionPage] = useState<number>(1);
   const loadingNextPageRef = useRef(false);
   const sentinelArmedRef = useRef(true);
+  const burstLoadsRef = useRef(0);
+  const loadCooldownUntilRef = useRef(0);
   const dropIdsSignature = useMemo(() => drops.map((drop) => drop.id).join('|'), [drops]);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
@@ -83,6 +85,8 @@ export function Feed({
       setPoolVersion((value) => value + 1);
       loadingNextPageRef.current = false;
       sentinelArmedRef.current = true;
+      burstLoadsRef.current = 0;
+      loadCooldownUntilRef.current = 0;
     },
     [seedIds, dropPreferences]
   );
@@ -158,11 +162,18 @@ export function Feed({
       ([entry]) => {
         if (!entry.isIntersecting) {
           sentinelArmedRef.current = true;
+          burstLoadsRef.current = 0;
           return;
         }
+
+        if (Date.now() < loadCooldownUntilRef.current) return;
         if (!sentinelArmedRef.current || loadingNextPageRef.current) return;
+        if (burstLoadsRef.current >= 2) return;
+
         sentinelArmedRef.current = false;
         loadingNextPageRef.current = true;
+        burstLoadsRef.current += 1;
+        loadCooldownUntilRef.current = Date.now() + 450;
         setSessionPage((value) => value + 1);
       },
       { threshold: 0.25, rootMargin: '0px 0px 160px 0px' }
@@ -265,7 +276,7 @@ export function Feed({
         </div>
       ) : null}
 
-      <header className="sticky top-0 z-10 border-b border-white/6 bg-[rgba(15,20,29,0.86)] backdrop-blur-xl">
+      <header className="top-0 z-10 border-b border-white/6 bg-[rgba(15,20,29,0.86)] backdrop-blur-xl lg:sticky">
         {selectedTag ? (
           <div className="mx-4 mt-4 flex items-center justify-between rounded-[20px] border border-[#7c3aed]/20 bg-[linear-gradient(180deg,rgba(44,30,78,0.92),rgba(29,23,47,0.96))] px-4 py-3 shadow-[inset_4px_4px_10px_rgba(18,12,31,0.38),inset_-2px_-2px_8px_rgba(255,255,255,0.02)]">
             <span className="text-[14px] text-[#c9b5ff]">

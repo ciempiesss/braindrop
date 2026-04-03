@@ -90,12 +90,14 @@ export function generateMultipleChoice(
     question = `¿Qué es "${title}"?`;
     distractorMode = 'other-collection';
   } else if (difficulty === 'medio') {
-    const snippet = firstSentence(drop.content).replace(new RegExp(title, 'gi'), '_____');
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const snippet = firstSentence(drop.content).replace(new RegExp(escaped, 'gi'), '_____');
     question = `¿Qué concepto corresponde a esta descripción?\n"${snippet}"`;
     distractorMode = 'same-type';
   } else {
     // Difícil: usar el contenido sin mencionar el título, distractores de la misma colección
-    const body = drop.content.substring(0, 120).replace(new RegExp(title, 'gi'), '_____');
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const body = drop.content.substring(0, 120).replace(new RegExp(escaped, 'gi'), '_____');
     question = `¿A qué concepto corresponde esta descripción?\n"${body}..."`;
     distractorMode = 'same-collection';
   }
@@ -159,7 +161,8 @@ export function generateTrueFalse(drop: Drop, difficulty: Difficulty): QuizQuest
 
   if (difficulty === 'facil') {
     // Fácil: afirmación literal y obvia del título
-    trueStatement = `"${title}" es un concepto estudiado en el campo de ${drop.tags[0] ?? 'conocimiento'}.`;
+    const tagLabel = (drop.tags[0] ?? 'este tema').replace(/-/g, ' ');
+    trueStatement = `"${title}" pertenece a ${tagLabel}.`;
     if (Math.random() < 0.6) {
       presentedStatement = trueStatement;
       isTrue = true;
@@ -293,7 +296,8 @@ export function generateFlashcard(drop: Drop, difficulty: Difficulty): QuizQuest
     answer = drop.content;
   } else if (difficulty === 'medio') {
     // Primera oración con el título removido como prompt
-    const sentence = firstSentence(drop.content).replace(new RegExp(title, 'gi'), '___').trim();
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sentence = firstSentence(drop.content).replace(new RegExp(escaped, 'gi'), '___').trim();
     question = sentence.endsWith('___')
       ? `¿Qué concepto completa esta frase?\n"${sentence}"`
       : `¿Qué concepto describe esto?\n"${sentence}"`;

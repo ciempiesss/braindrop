@@ -6,7 +6,7 @@ import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { exportData, importData } from '@/lib/exportImport';
 
 export type FontSize = 'sm' | 'md' | 'lg' | 'xl';
-export type QuizMode = 'ia' | 'pregenerated';
+export type QuizMode = 'ia' | 'local' | 'curated';
 export type QuizCount = 5 | 10 | 20;
 
 interface Settings {
@@ -46,10 +46,16 @@ export function loadSettings(): Settings {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
+      const normalizedQuizMode: QuizMode =
+        parsed.quizMode === 'pregenerated'
+          ? 'curated'
+          : parsed.quizMode === 'ia' || parsed.quizMode === 'local' || parsed.quizMode === 'curated'
+            ? parsed.quizMode
+            : 'local';
       return {
         fontSize: parsed.fontSize || 'md',
         visibleCollections: parsed.visibleCollections || [],
-        quizMode: parsed.quizMode || 'pregenerated',
+        quizMode: normalizedQuizMode,
         quizCount: parsed.quizCount || 10,
         weeklyGoal: parsed.weeklyGoal || 20,
       };
@@ -57,11 +63,16 @@ export function loadSettings(): Settings {
   } catch {
     // ignore
   }
-  return { fontSize: 'md', visibleCollections: [], quizMode: 'pregenerated', quizCount: 10, weeklyGoal: 20 };
+  return { fontSize: 'md', visibleCollections: [], quizMode: 'local', quizCount: 10, weeklyGoal: 20 };
 }
 
 function applyFontSize(fontSize: FontSize) {
   document.documentElement.style.setProperty('--font-size-base', FONT_SIZE_MAP[fontSize]);
+}
+
+export function applyFontSizeFromSettings(): void {
+  const settings = loadSettings();
+  applyFontSize(settings.fontSize);
 }
 
 export function Settings() {
@@ -129,7 +140,7 @@ export function Settings() {
     } else {
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
-      const defaultSettings: Settings = { fontSize: 'md', visibleCollections: [], quizMode: 'pregenerated', quizCount: 10, weeklyGoal: 20 };
+      const defaultSettings: Settings = { fontSize: 'md', visibleCollections: [], quizMode: 'local', quizCount: 10, weeklyGoal: 20 };
       setSettings(defaultSettings);
       applyFontSize(defaultSettings.fontSize);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
@@ -166,13 +177,13 @@ export function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#e7e9ea]">
-      <header className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2f3336] p-4">
-        <h1 className="text-xl font-bold">Configuración</h1>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(98,121,170,0.16),transparent_38%),linear-gradient(180deg,#0d1118_0%,#10151d_100%)] text-[#e7e9ea]">
+      <header className="sticky top-0 z-10 border-b border-white/6 bg-[rgba(15,20,29,0.86)] p-4 backdrop-blur-xl">
+        <h1 className="font-display text-[24px] font-black tracking-[-0.05em] text-white">Configuracion</h1>
       </header>
 
       <div className="p-4 space-y-6">
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <Type className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Tamaño de fuente</h2>
@@ -206,7 +217,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <Target className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Goal semanal</h2>
@@ -230,7 +241,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <Folder className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Colecciones en Home</h2>
@@ -270,7 +281,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <Brain className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Quiz</h2>
@@ -279,7 +290,7 @@ export function Settings() {
           <div className="space-y-4">
             <div>
               <label className="text-sm text-[#71767b] mb-2 block">Modo de generación</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleQuizModeChange('ia')}
                   className={cn(
@@ -292,15 +303,26 @@ export function Settings() {
                   🤖 IA
                 </button>
                 <button
-                  onClick={() => handleQuizModeChange('pregenerated')}
+                  onClick={() => handleQuizModeChange('local')}
                   className={cn(
                     'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2',
-                    settings.quizMode === 'pregenerated'
+                    settings.quizMode === 'local'
                       ? 'bg-[#7c3aed] text-white'
                       : 'bg-[#181818] text-[#71767b] hover:text-[#e7e9ea]'
                   )}
                 >
-                  📝 Pre-generado
+                  ⚙️ Local
+                </button>
+                <button
+                  onClick={() => handleQuizModeChange('curated')}
+                  className={cn(
+                    'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                    settings.quizMode === 'curated'
+                      ? 'bg-[#7c3aed] text-white'
+                      : 'bg-[#181818] text-[#71767b] hover:text-[#e7e9ea]'
+                  )}
+                >
+                  📝 Curado
                 </button>
               </div>
             </div>
@@ -327,7 +349,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <Download className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Datos</h2>
@@ -363,7 +385,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="bg-[#16181c] rounded-xl p-4 border border-[#2f3336]">
+        <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">
           <div className="flex items-center gap-3 mb-4">
             <RotateCcw className="w-5 h-5 text-[#7c3aed]" />
             <h2 className="text-lg font-semibold">Restablecer</h2>

@@ -5,7 +5,7 @@ import { Feed } from '@/components/Feed';
 import { RightSidebar } from '@/components/RightSidebar';
 import { Quiz } from '@/components/Quiz';
 import { Collections } from '@/components/Collections';
-import { Settings } from '@/components/Settings';
+import { Settings, applyFontSizeFromSettings } from '@/components/Settings';
 import { Explore } from '@/components/Explore';
 import { Progress } from '@/components/Progress';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
@@ -65,6 +65,10 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    applyFontSizeFromSettings();
+  }, []);
 
   const pendingFeedback = drops.filter((drop) => drop.viewed && !dropPreferences[drop.id]).length;
 

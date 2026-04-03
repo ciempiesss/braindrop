@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import type { Drop, Collection, DropType } from '@/types';
 import { SAMPLE_DROPS, SAMPLE_COLLECTIONS } from '@/data/seed';
 import { generateId } from '@/lib/utils';
+import { normalizeDropDraft } from '@/lib/dropContent';
 import { supabase, dbToDrop, dropToDb, dbToCollection, collectionToDb } from '@/lib/supabase';
 
 type DropPreference = 'like' | 'dislike';
@@ -57,6 +58,7 @@ const BrainDropContext = createContext<BrainDropContextType | undefined>(undefin
 const KEY_STREAK = 'braindrop_streak';
 const KEY_PREFERENCES = 'braindrop_drop_preferences_v1';
 const KEY_PREFERENCE_EVENTS = 'braindrop_drop_preference_events_v1';
+const KEY_CONTENT_MIGRATION = 'braindrop_content_migration_v2';
 
 function loadStreak(): Streak {
   try {
@@ -128,6 +130,14 @@ function persistPreferenceEvents(events: PreferenceEvent[]): void {
 
 const SEED_IDS = new Set(SAMPLE_DROPS.map((drop) => drop.id));
 
+function sameTags(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false;
+  }
+  return true;
+}
+
 async function seedInitialData(): Promise<void> {
   let localUserDrops: Drop[] = [];
   try {
@@ -163,6 +173,7 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [dropPreferences, setDropPreferences] = useState<Record<string, DropPreference>>(() => loadDropPreferences());
   const [preferenceEvents, setPreferenceEvents] = useState<PreferenceEvent[]>(() => loadPreferenceEvents());
+  const migrationRunningRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +220,81 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (loading || drops.length === 0 || migrationRunningRef.current) return;
+    try {
+      if (localStorage.getItem(KEY_CONTENT_MIGRATION) === 'done') return;
+    } catch {
+      // ignore
+    }
+
+    migrationRunningRef.current = true;
+
+    async function migrateLegacyDrops() {
+      const changed = drops
+        .map((drop) => {
+          const normalized = normalizeDropDraft({
+            title: drop.title,
+            content: drop.content,
+            type: drop.type,
+            tags: drop.tags,
+            collectionId: drop.collectionId,
+          });
+          const needsUpdate =
+            normalized.title !== drop.title ||
+            normalized.content !== drop.content ||
+            !sameTags(normalized.tags, drop.tags);
+          return needsUpdate
+            ? { id: drop.id, title: normalized.title, content: normalized.content, tags: normalized.tags }
+            : null;
+        })
+        .filter((entry): entry is { id: string; title: string; content: string; tags: string[] } => entry !== null);
+
+      if (changed.length === 0) {
+        try {
+          localStorage.setItem(KEY_CONTENT_MIGRATION, 'done');
+        } catch {
+          // ignore
+        }
+        migrationRunningRef.current = false;
+        return;
+      }
+
+      setDrops((prev) =>
+        prev.map((drop) => {
+          const hit = changed.find((entry) => entry.id === drop.id);
+          if (!hit) return drop;
+          return { ...drop, title: hit.title, content: hit.content, tags: hit.tags };
+        })
+      );
+
+      let ok = true;
+      for (let index = 0; index < changed.length; index += 1) {
+        const row = changed[index];
+        const { error } = await supabase
+          .from('drops')
+          .update({ title: row.title, content: row.content, tags: row.tags })
+          .eq('id', row.id);
+        if (error) {
+          ok = false;
+          console.error('Error normalizando drop legado:', row.id, error.message);
+        }
+      }
+
+      if (ok) {
+        try {
+          localStorage.setItem(KEY_CONTENT_MIGRATION, 'done');
+        } catch {
+          // ignore
+        }
+      }
+
+      migrationRunningRef.current = false;
+    }
+
+    void migrateLegacyDrops();
+  }, [drops, loading]);
+
+  useEffect(() => {
     persistDropPreferences(dropPreferences);
   }, [dropPreferences]);
 
@@ -229,8 +315,9 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
   const isUserDrop = useCallback((id: string) => !seedIdsSet.has(id), [seedIdsSet]);
 
   const addDrop: BrainDropContextType['addDrop'] = useCallback(async (dropData) => {
+    const normalized = normalizeDropDraft(dropData);
     const newDrop: Drop = {
-      ...dropData,
+      ...normalized,
       id: generateId(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -246,7 +333,23 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
 
   const updateDrop: BrainDropContextType['updateDrop'] = useCallback(async (id, updates) => {
     const updatedAt = new Date().toISOString();
-    setDrops((prev) => prev.map((drop) => (drop.id === id ? { ...drop, ...updates, updatedAt } : drop)));
+    const current = drops.find((drop) => drop.id === id);
+    const merged =
+      current && (updates.title || updates.content || updates.tags || updates.type || updates.collectionId)
+        ? normalizeDropDraft({
+          ...current,
+          ...updates,
+          title: updates.title ?? current.title,
+          content: updates.content ?? current.content,
+          type: updates.type ?? current.type,
+          tags: updates.tags ?? current.tags,
+          collectionId: updates.collectionId ?? current.collectionId,
+        })
+        : null;
+
+    setDrops((prev) =>
+      prev.map((drop) => (drop.id === id ? { ...drop, ...updates, ...(merged ? { title: merged.title, content: merged.content, tags: merged.tags } : {}), updatedAt } : drop))
+    );
 
     const dbUpdates: Record<string, unknown> = { updated_at: updatedAt };
     const keyMap: Record<string, string> = {
@@ -266,9 +369,14 @@ export function BrainDropProvider({ children }: { children: ReactNode }) {
     for (const [key, value] of Object.entries(updates)) {
       dbUpdates[keyMap[key] ?? key] = value;
     }
+    if (merged) {
+      dbUpdates.title = merged.title;
+      dbUpdates.content = merged.content;
+      dbUpdates.tags = merged.tags;
+    }
 
     await supabase.from('drops').update(dbUpdates).eq('id', id);
-  }, []);
+  }, [drops]);
 
   const deleteDrop: BrainDropContextType['deleteDrop'] = useCallback(async (id) => {
     setDrops((prev) => prev.filter((drop) => drop.id !== id));

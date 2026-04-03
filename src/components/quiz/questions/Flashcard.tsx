@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { cn } from '@/lib/utils';
 import type { QuizQuestion } from '@/types';
 
@@ -13,57 +14,53 @@ export function Flashcard({ question, onRate, rated }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Card */}
       <div
         onClick={() => !flipped && setFlipped(true)}
         className={cn(
-          'min-h-[220px] rounded-xl border p-6 transition-all cursor-pointer',
+          'min-h-[220px] cursor-pointer rounded-xl border p-6 transition-all',
           flipped
-            ? 'bg-[#16181c] border-[#7c3aed]/40 ring-1 ring-[#7c3aed]/30'
-            : 'bg-[#16181c] border-[#2f3336] hover:border-[#7c3aed]/40'
+            ? 'border-[#7c3aed]/40 bg-[#16181c] ring-1 ring-[#7c3aed]/30'
+            : 'border-[#2f3336] bg-[#16181c] hover:border-[#7c3aed]/40'
         )}
       >
         {!flipped ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[160px] text-center">
-            <p className="text-[#71767b] text-sm mb-3">Toca para revelar</p>
-            <p className="text-[#e7e9ea] text-lg font-semibold leading-snug">{question.question}</p>
-            <div className="mt-4 text-[#7c3aed] text-xs animate-pulse">↓ tap</div>
+          <div className="flex h-full min-h-[160px] flex-col items-center justify-center text-center">
+            <p className="mb-3 text-sm text-[#71767b]">Toca para revelar</p>
+            <p className="text-lg font-semibold leading-snug text-[#e7e9ea]">{question.question}</p>
+            <div className="mt-4 text-xs text-[#7c3aed] animate-pulse">tap para revelar</div>
           </div>
         ) : (
           <div>
-            <p className="text-xs text-[#7c3aed] uppercase tracking-wide mb-3">Respuesta</p>
-            <p className="text-[#e7e9ea] leading-relaxed whitespace-pre-wrap">{question.answer}</p>
+            <p className="mb-3 text-xs uppercase tracking-wide text-[#7c3aed]">Respuesta</p>
+            <p className="whitespace-pre-wrap leading-relaxed text-[#e7e9ea]">{question.answer}</p>
           </div>
         )}
       </div>
 
-      {/* Botones de calidad — solo después de flip y si no se ha calificado */}
-      {flipped && !rated && (
+      {flipped && !rated ? (
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => onRate(2)}
-            className="py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-semibold text-sm hover:bg-red-500/20 transition-colors"
+            className="rounded-xl border border-red-500/30 bg-red-500/10 py-3 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20"
           >
-            Difícil
+            Dificil
           </button>
           <button
             onClick={() => onRate(4)}
-            className="py-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 font-semibold text-sm hover:bg-green-500/20 transition-colors"
+            className="rounded-xl border border-green-500/30 bg-green-500/10 py-3 text-sm font-semibold text-green-400 transition-colors hover:bg-green-500/20"
           >
             Bien
           </button>
           <button
             onClick={() => onRate(5)}
-            className="py-3 rounded-xl bg-[#7c3aed]/10 border border-[#7c3aed]/30 text-[#7c3aed] font-semibold text-sm hover:bg-[#7c3aed]/20 transition-colors"
+            className="rounded-xl border border-[#7c3aed]/30 bg-[#7c3aed]/10 py-3 text-sm font-semibold text-[#7c3aed] transition-colors hover:bg-[#7c3aed]/20"
           >
-            Fácil
+            Facil
           </button>
         </div>
-      )}
+      ) : null}
 
-      {flipped && rated && (
-        <p className="text-center text-[#71767b] text-sm">Calificado ✓</p>
-      )}
+      {flipped && rated ? <p className="text-center text-sm text-[#71767b]">Calificado OK</p> : null}
     </div>
   );
 }

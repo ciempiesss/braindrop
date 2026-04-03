@@ -14,7 +14,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, { label: string; desc: string }> = {
 
 export function QuizStart({ quiz }: Props) {
   const { collections } = useBrainDrop();
-  const { config, setConfig, availableDrops, dueDrops, startSession } = quiz;
+  const { config, setConfig, availableDrops, dueDrops, curatedAvailable, canStart, startSession } = quiz;
 
   return (
     <div className="flex flex-col gap-6 px-1">
@@ -22,7 +22,11 @@ export function QuizStart({ quiz }: Props) {
       <div className="flex gap-3">
         <div className="flex-1 bg-[#16181c] border border-[#2f3336] rounded-xl p-3 text-center">
           <p className="text-2xl font-bold text-[#e7e9ea]">{availableDrops}</p>
-          <p className="text-xs text-[#71767b] mt-0.5">drops disponibles</p>
+          <p className="text-xs text-[#71767b] mt-0.5">drops locales</p>
+        </div>
+        <div className="flex-1 bg-[#16181c] border border-[#2f3336] rounded-xl p-3 text-center">
+          <p className="text-2xl font-bold text-[#a78bfa]">{curatedAvailable}</p>
+          <p className="text-xs text-[#71767b] mt-0.5">preguntas curadas</p>
         </div>
         {dueDrops > 0 && (
           <div className="flex-1 bg-red-500/5 border border-red-500/30 rounded-xl p-3 text-center">
@@ -116,10 +120,14 @@ export function QuizStart({ quiz }: Props) {
       {/* Botón empezar */}
       <button
         onClick={startSession}
-        disabled={availableDrops === 0}
+        disabled={!canStart}
         className="w-full py-4 rounded-xl bg-[#7c3aed] text-white font-bold text-base transition-all hover:bg-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {availableDrops === 0 ? 'Sin drops disponibles' : 'Empezar sesión'}
+        {!canStart
+          ? config.mode === 'curated'
+            ? 'Sin preguntas curadas ni drops locales'
+            : 'Sin drops disponibles'
+          : 'Empezar sesion'}
       </button>
     </div>
   );

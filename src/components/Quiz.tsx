@@ -5,7 +5,7 @@ import { QuizResult } from './quiz/QuizResult';
 
 export function Quiz({ onClose }: { onClose?: () => void }) {
   const quiz = useQuiz();
-  const { phase, generationProgress, questions } = quiz;
+  const { phase, generationProgress, generationTotal } = quiz;
 
   return (
     <div className="flex flex-col gap-4 pb-6">
@@ -30,12 +30,12 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
           <div className="w-12 h-12 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
           <p className="text-[#e7e9ea] font-semibold">Generando preguntas con IA</p>
           <p className="text-[#71767b] text-sm tabular-nums">
-            {generationProgress} / {questions.length || '?'}
+            {generationProgress} / {generationTotal || '?'}
           </p>
           <div className="w-full bg-[#2f3336] rounded-full h-1.5">
             <div
               className="bg-[#7c3aed] h-1.5 rounded-full transition-all duration-300"
-              style={{ width: questions.length > 0 ? `${(generationProgress / questions.length) * 100}%` : '0%' }}
+              style={{ width: generationTotal > 0 ? `${(generationProgress / generationTotal) * 100}%` : '0%' }}
             />
           </div>
         </div>

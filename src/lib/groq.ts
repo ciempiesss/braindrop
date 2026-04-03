@@ -1,4 +1,5 @@
 import type { QuizQuestion, Difficulty } from '@/types';
+import { normalizeTags } from '@/lib/dropContent';
 export type { QuizQuestion };
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -48,9 +49,12 @@ REGLA PRINCIPAL: Si el tema puede ser cubierto naturalmente por más de un tipo,
 
 ESTILO del contenido:
 - Directo, sin intro, sin "En resumen..." ni "Es importante recordar que..."
-- Entre 2 y 6 oraciones de alta densidad informativa
+- Entre 2 y 5 oraciones de alta densidad informativa
+- Frases cortas, concretas y fáciles de escanear (pensado para atención AuDHD)
+- Evita tono grandilocuente y afirmaciones absolutas no verificables
 - El título es el concepto central, no una descripción
 - Tags: 3-5 términos en minúsculas, sin espacios, separados, relevantes para búsqueda
+- El PRIMER tag debe ser una subcategoría corta y estable (ej: filosofia-mente, neurociencia, frontend, testing, agentes)
 - Para type "code": el codeSnippet es código real y ejecutable, el content explica qué hace y por qué importa
 
 Responde ÚNICAMENTE con JSON válido — un array de drops:
@@ -116,13 +120,25 @@ Genera los drops que consideres necesarios para cubrir este tema con profundidad
           VALID_TYPES.includes(d.type) &&
           Array.isArray(d.tags)
       )
-      .map((d) => ({
-        title: d.title.slice(0, 200),
-        content: d.content.slice(0, 5000),
-        type: d.type,
-        tags: d.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30)),
-        codeSnippet: d.codeSnippet ? String(d.codeSnippet) : undefined,
-      }));
+      .map((d) => {
+        const title = d.title.slice(0, 200);
+        const content = d.content.slice(0, 5000);
+        const type = d.type;
+        const tags = normalizeTags({
+          tags: d.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30)),
+          type,
+          title,
+          content,
+          collectionId: undefined,
+        });
+        return {
+          title,
+          content,
+          type,
+          tags,
+          codeSnippet: d.codeSnippet ? String(d.codeSnippet) : undefined,
+        };
+      });
   } catch {
     return generateFallbackDrops(topic);
   }
@@ -149,6 +165,7 @@ Tu trabajo:
 2. Generar un título conciso y preciso (máx 100 chars)
 3. Expandir el contenido: 2-5 oraciones densas, sin relleno. Enriquece sin inventar.
 4. Extraer 3-5 tags relevantes en minúsculas
+5. El primer tag debe representar una subcategoría estable y reutilizable
 
 Responde ÚNICAMENTE con JSON válido:
 {"title":"string","content":"string","type":"definition|ruptura|puente|operativo|code","tags":["string"],"codeSnippet":null}`;
@@ -189,11 +206,21 @@ Responde ÚNICAMENTE con JSON válido:
       return structureRawFallback(rawText);
     }
 
-    return {
-      title: parsed.title.slice(0, 200),
-      content: parsed.content.slice(0, 5000),
-      type: parsed.type,
+    const title = parsed.title.slice(0, 200);
+    const content = parsed.content.slice(0, 5000);
+    const type = parsed.type as GeneratedDrop['type'];
+    const tags = normalizeTags({
       tags: parsed.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30)),
+      type,
+      title,
+      content,
+      collectionId: undefined,
+    });
+    return {
+      title,
+      content,
+      type,
+      tags,
       codeSnippet: parsed.codeSnippet ? String(parsed.codeSnippet) : undefined,
     };
   } catch {
@@ -219,12 +246,13 @@ export async function editDropWithAI(
   }
 
   const systemPrompt = `Eres un editor de "drops" de conocimiento para una app de aprendizaje.
-Un drop tiene: título, contenido (2-6 oraciones densas), tipo, tags, y opcionalmente codeSnippet.
+Un drop tiene: título, contenido (2-5 oraciones densas), tipo, tags, y opcionalmente codeSnippet.
 
 Tipos válidos: definition, ruptura, puente, operativo, code.
 
 Recibirás el drop actual y una instrucción de edición. Aplica SOLO los cambios que pide la instrucción.
 Si el usuario no pide cambiar el tipo, mantenlo. Si no pide cambiar los tags, mantenlos.
+Si hay cambio de tags, conserva el primer tag como subcategoría estable y clara.
 
 Responde ÚNICAMENTE con JSON válido:
 {
@@ -273,13 +301,19 @@ Instrucción: ${instruction}`;
     const parsed = JSON.parse(cleaned);
     const VALID_TYPES = ['definition', 'ruptura', 'puente', 'operativo', 'code'];
 
+    const title = String(parsed.title || drop.title).slice(0, 200);
+    const content = String(parsed.content || drop.content).slice(0, 5000);
+    const type = VALID_TYPES.includes(parsed.type) ? parsed.type : drop.type as GeneratedDrop['type'];
+    const rawTags = Array.isArray(parsed.tags)
+      ? parsed.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30))
+      : drop.tags;
+    const tags = normalizeTags({ tags: rawTags, type, title, content, collectionId: undefined });
+
     return {
-      title: String(parsed.title || drop.title).slice(0, 200),
-      content: String(parsed.content || drop.content).slice(0, 5000),
-      type: VALID_TYPES.includes(parsed.type) ? parsed.type : drop.type as GeneratedDrop['type'],
-      tags: Array.isArray(parsed.tags)
-        ? parsed.tags.slice(0, 10).map((t: string) => String(t).slice(0, 30))
-        : drop.tags,
+      title,
+      content,
+      type,
+      tags,
       codeSnippet: parsed.codeSnippet ? String(parsed.codeSnippet) : undefined,
     };
   } catch {
