@@ -105,6 +105,7 @@ export interface QuizQuestion {
 
 export interface QuizConfig {
   collectionId: string | null;
+  collectionIds?: string[];
   difficulty: Difficulty;
   count: 5 | 10 | 20;
   mode: QuizGenerationMode;

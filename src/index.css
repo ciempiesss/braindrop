@@ -133,3 +133,196 @@
 .font-code {
   font-family: var(--font-mono);
 }
+
+@keyframes quizFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes quizFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes quizPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(124, 58, 237, 0);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(124, 58, 237, 0.35);
+  }
+}
+
+@keyframes quizFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes quizCardFlipIn {
+  from {
+    opacity: 0;
+    transform: rotateX(-10deg) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: rotateX(0deg) scale(1);
+  }
+}
+
+@keyframes quizShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+}
+
+@keyframes quizPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+@keyframes quizPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes quizScoreReveal {
+  from {
+    stroke-dashoffset: 264;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: var(--dash-offset, 264);
+    opacity: 1;
+  }
+}
+
+@keyframes quizStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes quizOptionReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes quizGradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes quizFlashcardFlip {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+@keyframes quizBounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px); }
+  75% { transform: translateY(-2px); }
+}
+
+.quiz-fade-up {
+  animation: quizFadeUp 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.quiz-fade-down {
+  animation: quizFadeDown 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.quiz-glow {
+  animation: quizPulseGlow 2.4s ease-in-out infinite;
+}
+
+.quiz-float {
+  animation: quizFloat 2.8s ease-in-out infinite;
+}
+
+.quiz-flip-in {
+  animation: quizCardFlipIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center;
+}
+
+.quiz-shake {
+  animation: quizShake 500ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.quiz-pulse {
+  animation: quizPulse 400ms ease-out;
+}
+
+.quiz-pop {
+  animation: quizPop 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.quiz-score-reveal {
+  animation: quizScoreReveal 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.quiz-stagger-1 { animation-delay: 60ms; }
+.quiz-stagger-2 { animation-delay: 120ms; }
+.quiz-stagger-3 { animation-delay: 180ms; }
+.quiz-stagger-4 { animation-delay: 240ms; }
+.quiz-stagger-5 { animation-delay: 300ms; }
+
+.quiz-option-reveal {
+  animation: quizOptionReveal 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.quiz-gradient-animate {
+  background-size: 200% 200%;
+  animation: quizGradientShift 4s ease infinite;
+}
+
+.quiz-btn-press {
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.quiz-btn-press:active {
+  transform: scale(0.97);
+}
+
+.quiz-card-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+.quiz-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(2, 8, 23, 0.32);
+}

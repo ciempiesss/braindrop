@@ -8,40 +8,31 @@ interface Props {
 }
 
 export function TrueFalse({ question, selectedAnswer, onSelect }: Props) {
-  const { isTrue = true } = question;
+  const isTrue = question.isTrue ?? true;
   const answered = selectedAnswer !== null;
 
-  function buttonStyle(value: boolean) {
-    if (!answered) {
-      return 'bg-[#16181c] border border-[#2f3336] text-[#e7e9ea] hover:border-[#7c3aed]/60';
-    }
-    const isThisCorrect = value === isTrue;
-    const isThisSelected = value === selectedAnswer;
-
-    if (isThisCorrect) return 'bg-green-500/10 border-2 border-green-500 text-[#e7e9ea]';
-    if (isThisSelected) return 'bg-red-500/10 border-2 border-red-500 text-[#e7e9ea]';
-    return 'bg-[#16181c] border border-[#2f3336] text-[#71767b] opacity-50';
-  }
+  const getStateClass = (value: boolean) => {
+    if (!answered) return 'border-white/12 bg-white/[0.03] text-white hover:border-[#7c3aed]/45';
+    const correct = value === isTrue;
+    const selected = value === selectedAnswer;
+    if (correct) return 'border-emerald-400/50 bg-emerald-500/10 text-emerald-50';
+    if (selected) return 'border-rose-400/50 bg-rose-500/10 text-rose-50';
+    return 'border-white/8 bg-white/[0.02] text-white/45';
+  };
 
   return (
     <div className="grid grid-cols-2 gap-3">
       <button
         onClick={() => !answered && onSelect(true)}
         disabled={answered}
-        className={cn(
-          'py-5 rounded-xl text-lg font-bold transition-all',
-          buttonStyle(true)
-        )}
+        className={cn('quiz-btn-press quiz-card-hover rounded-2xl border px-4 py-5 text-base font-bold transition-all', getStateClass(true))}
       >
         {answered && isTrue ? '✓ ' : ''}Verdadero
       </button>
       <button
         onClick={() => !answered && onSelect(false)}
         disabled={answered}
-        className={cn(
-          'py-5 rounded-xl text-lg font-bold transition-all',
-          buttonStyle(false)
-        )}
+        className={cn('quiz-btn-press quiz-card-hover rounded-2xl border px-4 py-5 text-base font-bold transition-all', getStateClass(false))}
       >
         {answered && !isTrue ? '✓ ' : ''}Falso
       </button>

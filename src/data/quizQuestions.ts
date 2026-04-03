@@ -1,1191 +1,596 @@
 import type { QuizQuestion } from '@/types';
 
-// ─── Preguntas curadas por criterio propio ────────────────────────────────────
-//
-// Organizadas por colección y dificultad creciente.
-// Cubren conceptos de básico a avanzado en cada dominio.
-// Ninguna requiere haber leído un drop específico.
-//
-// Principios AUDHD aplicados:
-//   - Una sola idea por pregunta
-//   - Distractores representan malentendidos reales
-//   - Explicaciones añaden insight más allá de confirmar la respuesta
-//   - Las preguntas difíciles exigen síntesis, no memorización
-// ─────────────────────────────────────────────────────────────────────────────
+type Difficulty = QuizQuestion['difficulty'];
+
+interface McqInput {
+  collectionId: string;
+  conceptName: string;
+  difficulty: Difficulty;
+  question: string;
+  options: [string, string, string, string];
+  correctIndex: 0 | 1 | 2 | 3;
+  explanation: string;
+}
+
+interface TfInput {
+  collectionId: string;
+  conceptName: string;
+  difficulty: Difficulty;
+  question: string;
+  isTrue: boolean;
+  explanation: string;
+}
+
+interface FillInput {
+  collectionId: string;
+  conceptName: string;
+  difficulty: Difficulty;
+  question: string;
+  blankSentence: string;
+  blankWord: string;
+  blankOptions: [string, string, string, string];
+  correctIndex: 0 | 1 | 2 | 3;
+  explanation: string;
+}
+
+interface FlashInput {
+  collectionId: string;
+  conceptName: string;
+  difficulty: Difficulty;
+  question: string;
+  answer: string;
+  explanation: string;
+}
+
+function mcq(input: McqInput): QuizQuestion {
+  return {
+    collectionId: input.collectionId,
+    conceptName: input.conceptName,
+    type: 'multiple-choice',
+    difficulty: input.difficulty,
+    question: input.question,
+    answer: input.options[input.correctIndex],
+    explanation: input.explanation,
+    options: input.options,
+    correctIndex: input.correctIndex,
+  };
+}
+
+function tf(input: TfInput): QuizQuestion {
+  return {
+    collectionId: input.collectionId,
+    conceptName: input.conceptName,
+    type: 'true-false',
+    difficulty: input.difficulty,
+    question: input.question,
+    answer: input.isTrue ? 'Verdadero' : 'Falso',
+    explanation: input.explanation,
+    isTrue: input.isTrue,
+  };
+}
+
+function fill(input: FillInput): QuizQuestion {
+  return {
+    collectionId: input.collectionId,
+    conceptName: input.conceptName,
+    type: 'fill-blank',
+    difficulty: input.difficulty,
+    question: input.question,
+    answer: input.blankOptions[input.correctIndex],
+    explanation: input.explanation,
+    blankSentence: input.blankSentence,
+    blankWord: input.blankWord,
+    blankOptions: input.blankOptions,
+    correctIndex: input.correctIndex,
+  };
+}
+
+function flash(input: FlashInput): QuizQuestion {
+  return {
+    collectionId: input.collectionId,
+    conceptName: input.conceptName,
+    type: 'flashcard',
+    difficulty: input.difficulty,
+    question: input.question,
+    answer: input.answer,
+    explanation: input.explanation,
+  };
+}
+
+function shuffleArray<T>(list: T[]): T[] {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 export const CURATED_QUESTIONS: QuizQuestion[] = [
-
-  // ═══════════════════════════════════════════════════════
-  // CONSCIENCIA & MENTE
-  // ═══════════════════════════════════════════════════════
-
-  {
+  // FACIL
+  fill({
     collectionId: 'consciencia',
     conceptName: 'Qualia',
-    type: 'fill-blank',
     difficulty: 'facil',
-    question: 'Completa: La experiencia subjetiva pura de percibir — como la "rojez" del rojo — se llama _____.',
-    answer: 'qualia',
-    explanation: 'Qualia son las propiedades subjetivas irreducibles de la experiencia. No importa cuánto sepas de física óptica — eso no captura qué se siente ver rojo.',
-    blankSentence: 'La experiencia subjetiva pura de percibir — como la "rojez" del rojo — se llama _____.',
+    question: 'Completa la idea',
+    blankSentence: 'La experiencia subjetiva de sentir un color o dolor se llama _____.',
     blankWord: 'qualia',
-    blankOptions: ['qualia', 'neurona', 'percepción', 'sinapsis'],
-    correctIndex: 0,
-  },
-  {
+    blankOptions: ['sinapsis', 'qualia', 'algoritmo', 'sesgo'],
+    correctIndex: 1,
+    explanation: 'Qualia nombra el lado subjetivo de la experiencia.',
+  }),
+  tf({
     collectionId: 'consciencia',
     conceptName: 'Hard Problem',
-    type: 'true-false',
     difficulty: 'facil',
-    question: 'El "hard problem of consciousness" puede resolverse completamente mapando todas las neuronas del cerebro.',
-    answer: 'Falso',
-    explanation: 'Chalmers distingue los "easy problems" (cómo el cerebro procesa información) del hard problem: por qué ese procesamiento va acompañado de experiencia subjetiva. El mapa completo del cerebro no responde esa pregunta.',
+    question: 'Mapear neuronas explica por si solo por que existe experiencia subjetiva.',
     isTrue: false,
-  },
-  {
+    explanation: 'Ese hueco explicativo es justo el hard problem.',
+  }),
+  mcq({
+    collectionId: 'software',
+    conceptName: 'HTTP 401 vs 403',
+    difficulty: 'facil',
+    question: 'Que diferencia correcta hay entre 401 y 403?',
+    options: [
+      '401 es recurso no encontrado, 403 es timeout',
+      '401 y 403 son equivalentes',
+      '401 no autenticado, 403 sin permiso',
+      '401 error de frontend, 403 error de backend',
+    ],
+    correctIndex: 2,
+    explanation: '401 pide credenciales; 403 niega acceso aun con identidad.',
+  }),
+  fill({
+    collectionId: 'software',
+    conceptName: 'CRUD',
+    difficulty: 'facil',
+    question: 'Completa la secuencia basica',
+    blankSentence: 'CRUD significa Create, Read, Update y _____.',
+    blankWord: 'Delete',
+    blankOptions: ['Delete', 'Merge', 'Cache', 'Compile'],
+    correctIndex: 0,
+    explanation: 'CRUD describe operaciones basicas sobre datos.',
+  }),
+  tf({
+    collectionId: 'patrones',
+    conceptName: 'Feedback',
+    difficulty: 'facil',
+    question: 'Feedback negativo en sistemas siempre significa algo malo.',
+    isTrue: false,
+    explanation: 'Negativo puede estabilizar, como un termostato.',
+  }),
+  mcq({
+    collectionId: 'patrones',
+    conceptName: 'Pareto',
+    difficulty: 'facil',
+    question: 'Que expresa mejor la regla 80/20?',
+    options: [
+      'Todas las causas pesan igual',
+      'Pocos factores explican gran parte del efecto',
+      'Solo aplica a ventas',
+      'Es una ley exacta en todo contexto',
+    ],
+    correctIndex: 1,
+    explanation: 'No es exacta, pero describe concentracion de impacto.',
+  }),
+  fill({
+    collectionId: 'automatizacion',
+    conceptName: 'Idempotencia',
+    difficulty: 'facil',
+    question: 'Completa la definicion',
+    blankSentence: 'Una operacion es _____ si repetirla no cambia el resultado final.',
+    blankWord: 'idempotente',
+    blankOptions: ['asincrona', 'idempotente', 'eventual', 'mutable'],
+    correctIndex: 1,
+    explanation: 'Clave para reintentos seguros en jobs y APIs.',
+  }),
+  tf({
+    collectionId: 'automatizacion',
+    conceptName: 'Retries',
+    difficulty: 'facil',
+    question: 'Si un servicio falla, reintentar sin limite siempre es buena practica.',
+    isTrue: false,
+    explanation: 'Sin control puedes saturar sistemas; usa backoff y limites.',
+  }),
+  mcq({
+    collectionId: 'qa-pro',
+    conceptName: 'Flaky tests',
+    difficulty: 'facil',
+    question: 'Por que un test flaky es peligroso?',
+    options: [
+      'Porque tarda mas en compilar',
+      'Porque impide usar TypeScript',
+      'Porque hace que el equipo ignore fallas reales',
+      'Porque obliga a usar Selenium',
+    ],
+    correctIndex: 2,
+    explanation: 'Si todo parece ruido, un bug real se pierde.',
+  }),
+  fill({
+    collectionId: 'qa-pro',
+    conceptName: 'Shift Left',
+    difficulty: 'facil',
+    question: 'Completa la idea',
+    blankSentence: 'Shift left significa probar _____ en el ciclo, no al final.',
+    blankWord: 'antes',
+    blankOptions: ['mas caro', 'automaticamente', 'antes', 'despues'],
+    correctIndex: 2,
+    explanation: 'Detectar temprano reduce costo y retrabajo.',
+  }),
+  tf({
+    collectionId: 'geopolitica',
+    conceptName: 'Narrativa',
+    difficulty: 'facil',
+    question: 'Controlar narrativa no afecta decisiones politicas reales.',
+    isTrue: false,
+    explanation: 'Narrativa moldea percepcion de riesgo, legitimidad y accion.',
+  }),
+  mcq({
+    collectionId: 'geopolitica',
+    conceptName: 'Incentivos',
+    difficulty: 'facil',
+    question: 'Que explica mejor decisiones de actores estatales?',
+    options: [
+      'Solo ideologia declarada',
+      'Incentivos, restricciones y costos',
+      'Solo personalidad del lider',
+      'Suerte historica',
+    ],
+    correctIndex: 1,
+    explanation: 'Analizar incentivos da mejor prediccion que slogans.',
+  }),
+  fill({
+    collectionId: 'hermetismo',
+    conceptName: 'Simbolo',
+    difficulty: 'facil',
+    question: 'Completa la idea',
+    blankSentence: 'En tradiciones simbolicas, el simbolo no solo representa: tambien _____.',
+    blankWord: 'organiza percepcion',
+    blankOptions: ['decora texto', 'organiza percepcion', 'reemplaza metodo', 'elimina contexto'],
+    correctIndex: 1,
+    explanation: 'Un simbolo dirige atencion y lectura de la experiencia.',
+  }),
+  tf({
+    collectionId: 'hermetismo',
+    conceptName: 'Practica',
+    difficulty: 'facil',
+    question: 'Sin practica, solo leer sistemas simbolicos suele producir comprension estable.',
+    isTrue: false,
+    explanation: 'Sin iteracion practica, la comprension se vuelve abstracta y fragil.',
+  }),
+  flash({
+    collectionId: 'rotoplas',
+    conceptName: 'Priorizacion',
+    difficulty: 'facil',
+    question: 'Describe una regla simple para priorizar trabajo diario sin saturarte.',
+    answer: 'Usa 3 niveles: critico hoy, importante semana, puede esperar. Elige maximo 1 tarea critica y 2 importantes por bloque.',
+    explanation: 'Limitar WIP reduce ruido y mejora ejecucion.',
+  }),
+
+  // MEDIO
+  mcq({
     collectionId: 'consciencia',
     conceptName: 'Panpsiquismo',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Qué afirma el panpsiquismo?',
-    answer: 'La consciencia es una propiedad fundamental del universo, no un producto accidental de la materia compleja',
-    explanation: 'No dice que las piedras "piensen". Dice que la experiencia subjetiva es tan fundamental como la masa o la carga eléctrica — no emerge de la nada en algún umbral de complejidad.',
+    difficulty: 'medio',
+    question: 'Que afirma una lectura fuerte de panpsiquismo?',
     options: [
-      'Solo los humanos tienen consciencia verdadera',
-      'La consciencia emerge cuando hay suficientes neuronas',
-      'La consciencia es una propiedad fundamental del universo, no un producto accidental de la materia compleja',
-      'La mente y el cuerpo son sustancias completamente separadas',
+      'Toda entidad piensa como humano',
+      'La experiencia no emerge de cero en complejidad alta',
+      'La consciencia es ilusion linguistica',
+      'La materia no existe',
     ],
-    correctIndex: 2,
-  },
-  {
+    correctIndex: 1,
+    explanation: 'No antropomorfiza todo; propone experiencia como rasgo basal.',
+  }),
+  flash({
     collectionId: 'consciencia',
     conceptName: 'Conatus',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Qué es el conatus en Spinoza?',
-    answer: 'La tendencia de cada cosa a perseverar en su propio ser',
-    explanation: 'No es instinto ni voluntad — es la esencia misma de cada cosa. La alegría expande el conatus; la tristeza lo contrae. Es la mecánica básica de la existencia, no una metáfora.',
+    difficulty: 'medio',
+    question: 'Conatus en clave practica: como se reconoce en una semana real?',
+    answer: 'Cuando una decision te deja con mas capacidad de actuar despues, expandes conatus. Si te deja drenado sin direccion, lo contraes.',
+    explanation: 'Es un criterio operativo de energia y agencia.',
+  }),
+  mcq({
+    collectionId: 'software',
+    conceptName: 'Event Loop',
+    difficulty: 'medio',
+    question: 'Que es correcto sobre setTimeout(fn, 0)?',
     options: [
-      'La capacidad de razonar abstractamente',
-      'La tendencia de cada cosa a perseverar en su propio ser',
-      'El deseo de dominar a otros',
-      'La búsqueda del placer y evitación del dolor',
+      'Ejecuta antes del codigo sync pendiente',
+      'Ejecuta solo despues de vaciar call stack',
+      'Bloquea el hilo principal',
+      'Siempre corre en microtask queue',
     ],
     correctIndex: 1,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Zombie filosófico',
-    type: 'true-false',
+    explanation: 'Se encola y espera a que el stack actual termine.',
+  }),
+  tf({
+    collectionId: 'software',
+    conceptName: 'fetch',
     difficulty: 'medio',
-    question: 'Si un zombie filosófico es concebible (un ser físicamente idéntico a ti pero sin experiencia interna), eso implica que la consciencia NO se reduce a procesos físicos.',
-    answer: 'Verdadero',
-    explanation: 'Este es exactamente el argumento de Chalmers: si el zombie es concebible, entonces la consciencia es algo "extra" más allá de lo físico — no puede ser idéntica a los procesos cerebrales.',
-    isTrue: true,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Monismo vs Dualismo',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Spinoza es monista. ¿Qué lo distingue del materialismo, que también es monista?',
-    answer: 'Para Spinoza la sustancia única es Dios/Naturaleza — la mente y la materia son atributos de esa sustancia. El materialismo pone la materia como única sustancia.',
-    explanation: 'Ambos rechazan el dualismo cartesiano, pero difieren en qué ponen en el centro. El monismo de Spinoza no reduce la mente a materia — las trata como dos aspectos irreducibles de lo mismo.',
-    options: [
-      'Spinoza niega la existencia de la materia',
-      'Para Spinoza la sustancia única es Dios/Naturaleza — la mente y la materia son atributos de esa sustancia. El materialismo pone la materia como única sustancia.',
-      'El materialismo acepta la existencia de Dios; Spinoza no',
-      'No hay diferencia — ambos concluyen lo mismo',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Simulacro',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Baudrillard describe 4 fases de la imagen. En la fase final (simulacro puro), ¿qué ocurre?',
-    answer: 'La imagen opera sin referencia a ninguna realidad — es su propio referente',
-    explanation: 'Ya no representa ni enmascara nada real. La imagen no es copia del original: ha reemplazado al original. Las redes sociales son el ejemplo perfecto — no representan tu vida, son lo que eres para el sistema.',
-    options: [
-      'La imagen distorsiona la realidad subyacente',
-      'La imagen oculta la ausencia de realidad',
-      'La imagen opera sin referencia a ninguna realidad — es su propio referente',
-      'La imagen refleja fielmente la realidad',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Disonancia cognitiva',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Cuando hay disonancia cognitiva, el cerebro suele cambiar la conducta para alinearla con las creencias.',
-    answer: 'Falso',
-    explanation: 'Al contrario: el cerebro casi siempre cambia la CREENCIA para justificar la conducta ya realizada. Fumas y te convences de que a ti no te va a pasar, no dejas de fumar. La racionalización post-hoc es la respuesta por defecto.',
+    question: 'fetch lanza excepcion automaticamente en cualquier HTTP 4xx/5xx.',
     isTrue: false,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Flow state',
-    type: 'fill-blank',
+    explanation: 'Solo falla por red; 4xx/5xx requieren revisar response.ok.',
+  }),
+  fill({
+    collectionId: 'software',
+    conceptName: 'Closure',
     difficulty: 'medio',
-    question: 'El flow ocurre en la intersección exacta entre _____ y habilidad — demasiado fácil produce aburrimiento; demasiado difícil produce ansiedad.',
-    answer: 'dificultad',
-    explanation: 'Csikszentmihalyi: el flow es el filo. No se puede forzar directamente, solo se crean las condiciones: tarea clara, retroalimentación inmediata, sin interrupciones.',
-    blankSentence: 'El flow ocurre en la intersección exacta entre _____ y habilidad — demasiado fácil produce aburrimiento; demasiado difícil produce ansiedad.',
-    blankWord: 'dificultad',
-    blankOptions: ['dificultad', 'motivación', 'concentración', 'tiempo'],
+    question: 'Completa',
+    blankSentence: 'Una funcion interna que conserva acceso al scope externo forma un _____.',
+    blankWord: 'closure',
+    blankOptions: ['closure', 'decorator', 'mutex', 'bundle'],
     correctIndex: 0,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Rizoma',
-    type: 'multiple-choice',
+    explanation: 'Base de muchos patrones en JS y React.',
+  }),
+  mcq({
+    collectionId: 'patrones',
+    conceptName: 'Segundo orden',
     difficulty: 'medio',
-    question: 'Deleuze dice que el conocimiento es un rizoma, no un árbol. ¿Qué implica esto?',
-    answer: 'Cualquier punto del conocimiento puede conectar con cualquier otro, sin jerarquía central',
-    explanation: 'El árbol tiene raíz, tronco y ramas — jerarquía fija, flujo unidireccional. El rizoma crece en todas direcciones: Spinoza conecta con programación conecta con QA. Esa es la naturaleza real del aprendizaje.',
+    question: 'Pensar en segundo orden significa:',
     options: [
-      'El conocimiento debe aprenderse siempre de lo básico a lo avanzado',
-      'Cualquier punto del conocimiento puede conectar con cualquier otro, sin jerarquía central',
-      'El conocimiento filosófico es superior al técnico',
-      'Los conceptos solo se entienden en contexto de su disciplina original',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Sesgo de confirmación',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Las redes sociales crearon el sesgo de confirmación en los usuarios modernos.',
-    answer: 'Falso',
-    explanation: 'El sesgo de confirmación es un mecanismo evolutivo del cerebro — protege el modelo del mundo existente porque reconstruirlo tiene costo energético. Las redes sociales no lo crearon: lo industrializaron. El algoritmo lo explota porque te mantiene más tiempo en la plataforma.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Inteligencia vs Consciencia',
-    type: 'multiple-choice',
-    difficulty: 'dificil',
-    question: 'Una IA puede ganar al ajedrez, escribir poesía y diagnosticar cáncer. ¿Qué demuestra esto sobre la relación entre inteligencia y consciencia?',
-    answer: 'Que inteligencia y consciencia son fenómenos completamente separables — puedes tener toda la inteligencia sin ninguna experiencia subjetiva',
-    explanation: 'Este es el argumento de Faggin: la IA es el zombie filosófico hecho realidad. Su existencia demuestra que el procesamiento sofisticado de información no requiere ni genera experiencia interna. La pregunta entonces es: ¿qué eres tú ADEMÁS de procesamiento de información?',
-    options: [
-      'Que la IA es consciente en algún grado',
-      'Que la inteligencia humana es fundamentalmente diferente',
-      'Que inteligencia y consciencia son fenómenos completamente separables — puedes tener toda la inteligencia sin ninguna experiencia subjetiva',
-      'Que la consciencia emergerá cuando la IA sea suficientemente compleja',
+      'Optimizar solo efecto inmediato',
+      'Evitar decisiones reversibles',
+      'Evaluar consecuencias de consecuencias',
+      'Usar solo datos historicos',
     ],
     correctIndex: 2,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Spinoza y neurociencia',
-    type: 'true-false',
-    difficulty: 'dificil',
-    question: 'Spinoza fue excomulgado en 1656 principalmente porque negó la existencia de Dios.',
-    answer: 'Falso',
-    explanation: 'Lo excomulgaron por ser demasiado correcto demasiado pronto: propuso que mente y cuerpo son atributos de la misma sustancia (no dos cosas separadas como Descartes). La neurociencia tardó 3 siglos en confirmar que no hay separación real entre estados mentales y físicos.',
+    explanation: 'Evita soluciones que se rompen al escalar.',
+  }),
+  flash({
+    collectionId: 'patrones',
+    conceptName: 'Antifragil',
+    difficulty: 'medio',
+    question: 'Diferencia rapida entre robusto y antifragil.',
+    answer: 'Robusto resiste shock y queda igual. Antifragil usa shock para mejorar.',
+    explanation: 'No es solo aguantar: es aprender y subir rendimiento.',
+  }),
+  mcq({
+    collectionId: 'automatizacion',
+    conceptName: 'Backoff',
+    difficulty: 'medio',
+    question: 'Por que usar backoff exponencial en reintentos?',
+    options: [
+      'Para ocultar errores',
+      'Para reducir costo de logs',
+      'Para dar tiempo de recuperacion y evitar tormenta de retries',
+      'Para garantizar exito en primer reintento',
+    ],
+    correctIndex: 2,
+    explanation: 'Backoff protege al sistema cuando esta degradado.',
+  }),
+  tf({
+    collectionId: 'automatizacion',
+    conceptName: 'Human in the loop',
+    difficulty: 'medio',
+    question: 'Todo flujo con IA debe ser completamente autonomo para ser util.',
     isTrue: false,
-  },
-  {
+    explanation: 'En tareas de riesgo, aprobacion humana aumenta seguridad.',
+  }),
+  fill({
+    collectionId: 'qa-pro',
+    conceptName: 'Test Pyramid',
+    difficulty: 'medio',
+    question: 'Completa',
+    blankSentence: 'La piramide de testing recomienda muchos tests _____ y menos E2E.',
+    blankWord: 'unitarios',
+    blankOptions: ['manuales', 'unitarios', 'visuales', 'exploratorios'],
+    correctIndex: 1,
+    explanation: 'Unitarios son mas rapidos y baratos de mantener.',
+  }),
+  mcq({
+    collectionId: 'qa-pro',
+    conceptName: 'Contract testing',
+    difficulty: 'medio',
+    question: 'Que valida un contract test entre servicios?',
+    options: [
+      'UI final pixel-perfect',
+      'Acuerdo de request/response entre consumidor y proveedor',
+      'Solo performance del endpoint',
+      'Solo autenticacion OAuth',
+    ],
+    correctIndex: 1,
+    explanation: 'Protege integracion sin depender de entornos inestables.',
+  }),
+  flash({
+    collectionId: 'geopolitica',
+    conceptName: 'Sanciones',
+    difficulty: 'medio',
+    question: 'Por que sanciones a veces no logran el cambio politico esperado?',
+    answer: 'Pueden fortalecer narrativas internas, crear rutas alternativas y redistribuir costos hacia poblacion en vez de elite decisora.',
+    explanation: 'Impacto economico no siempre implica impacto estrategico.',
+  }),
+  mcq({
+    collectionId: 'geopolitica',
+    conceptName: 'Principal-Agent',
+    difficulty: 'medio',
+    question: 'En politica publica, un problema principal-agent aparece cuando:',
+    options: [
+      'No existen indicadores',
+      'El ejecutor tiene incentivos distintos al mandante',
+      'Hay exceso de transparencia',
+      'El presupuesto es alto',
+    ],
+    correctIndex: 1,
+    explanation: 'La implementacion puede desviarse aunque el objetivo oficial sea claro.',
+  }),
+  tf({
+    collectionId: 'hermetismo',
+    conceptName: 'Mapa y territorio',
+    difficulty: 'medio',
+    question: 'Confundir simbolo con realidad literal suele mejorar una practica.',
+    isTrue: false,
+    explanation: 'Mapa util no reemplaza verificacion en experiencia real.',
+  }),
+  fill({
+    collectionId: 'rotoplas',
+    conceptName: 'Bloques de energia',
+    difficulty: 'medio',
+    question: 'Completa',
+    blankSentence: 'Para sostener ejecucion, divide trabajo en bloques de _____ y recuperacion.',
+    blankWord: 'foco',
+    blankOptions: ['foco', 'urgencia', 'interrupciones', 'reunion'],
+    correctIndex: 0,
+    explanation: 'Alternar foco y pausa ayuda a evitar colapso de atencion.',
+  }),
+
+  // DIFICIL
+  flash({
+    collectionId: 'consciencia',
+    conceptName: 'Zombie filosofico',
+    difficulty: 'dificil',
+    question: 'Si un zombie filosofico es concebible, que tension deja para el fisicalismo estricto?',
+    answer: 'Que equivalencia funcional no prueba equivalencia fenomenica: conducta igual no garantiza experiencia subjetiva.',
+    explanation: 'Abre el hueco entre explicacion causal y fenomenologia.',
+  }),
+  mcq({
     collectionId: 'consciencia',
     conceptName: 'Determinismo y libertad',
-    type: 'multiple-choice',
     difficulty: 'dificil',
-    question: 'Spinoza era determinista: todo está causalmente determinado. Aun así, distingue grados de libertad. ¿En qué consiste la libertad según Spinoza?',
-    answer: 'Actuar desde la comprensión de las propias causas, no desde la ignorancia y las pasiones externas',
-    explanation: 'La libertad no es escapar la cadena causal — es imposible. Es entender tus propias causas y actuar desde ahí. Quien actúa desde la ignorancia es menos libre aunque crea elegir. Quien comprende sus determinaciones puede, paradójicamente, usarlas.',
+    question: 'En una lectura spinozista, cual es una forma robusta de libertad?',
     options: [
-      'Tener muchas opciones disponibles',
-      'Actuar sin restricciones externas',
-      'Actuar desde la comprensión de las propias causas, no desde la ignorancia y las pasiones externas',
-      'Seguir las leyes de la naturaleza conscientemente',
+      'Actuar sin causa',
+      'Elegir al azar para evitar sesgos',
+      'Comprender causas propias y actuar con ese conocimiento',
+      'Negar condicionamientos biologicos',
     ],
     correctIndex: 2,
-  },
-  {
-    collectionId: 'consciencia',
-    conceptName: 'Magia del caos y creencia',
-    type: 'flashcard',
+    explanation: 'No es ausencia de causalidad, sino agencia informada dentro de ella.',
+  }),
+  tf({
+    collectionId: 'software',
+    conceptName: 'N+1',
     difficulty: 'dificil',
-    question: '¿Cómo trata la magia del caos los sistemas de creencias, y por qué esto la acerca al pensamiento de ingeniería?',
-    answer: 'Trata los sistemas de creencias como herramientas — no como verdades. Usas el que funciona para el objetivo y lo descartas cuando no sirve. La creencia es tecnología. El operador entrena la capacidad de creer y descreer voluntariamente.',
-    explanation: 'Es el sistema más pragmático de todos: importa si funciona, no si es "verdad". Un ingeniero hace exactamente lo mismo con frameworks y metodologías. La diferencia es solo el dominio de aplicación.',
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // SOFTWARE & CÓDIGO
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'software',
-    conceptName: 'HTTP: métodos',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'El método HTTP que SOLO pide datos sin modificar nada en el servidor se llama _____.',
-    answer: 'GET',
-    explanation: 'GET debe ser idempotente y seguro: llamarlo 100 veces da el mismo resultado. Si un GET modifica estado, es un bug de diseño de la API.',
-    blankSentence: 'El método HTTP que SOLO pide datos sin modificar nada en el servidor se llama _____.',
-    blankWord: 'GET',
-    blankOptions: ['GET', 'POST', 'PUT', 'FETCH'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'HTTP: status codes',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuál es la diferencia entre un 401 y un 403 en HTTP?',
-    answer: '401 = no estás autenticado (el servidor no sabe quién eres). 403 = estás autenticado pero no tienes permiso.',
-    explanation: 'Confundirlos es un error de diseño común. 401 dice "identifícate primero". 403 dice "ya sé quién eres y no puedes hacer esto". Son dos capas distintas de seguridad.',
-    options: [
-      '401 y 403 son equivalentes — ambos significan acceso denegado',
-      '401 = error del servidor, 403 = error del cliente',
-      '401 = no estás autenticado (el servidor no sabe quién eres). 403 = estás autenticado pero no tienes permiso.',
-      '401 = recurso no encontrado, 403 = recurso bloqueado',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Git: HEAD',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'En Git, ¿qué es HEAD?',
-    answer: 'El puntero que indica en qué commit (o rama) estás trabajando actualmente',
-    explanation: 'Git guarda snapshots del proyecto. HEAD es el cursor que dice "aquí estoy ahora". Cuando haces checkout a otra rama, HEAD se mueve. Cuando haces un commit nuevo, HEAD avanza.',
-    options: [
-      'El primer commit del repositorio',
-      'El branch principal (main)',
-      'El commit más reciente en el servidor',
-      'El puntero que indica en qué commit (o rama) estás trabajando actualmente',
-    ],
-    correctIndex: 3,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Variables: const vs let',
-    type: 'true-false',
-    difficulty: 'facil',
-    question: '`const` en JavaScript significa que el valor de la variable nunca puede cambiar.',
-    answer: 'Falso',
-    explanation: 'const significa que la REFERENCIA no cambia — no el valor. Un objeto declarado con const puede tener sus propiedades modificadas. Solo primitivos (números, strings, booleans) son efectivamente inmutables con const.',
+    question: 'El problema N+1 casi nunca escala porque cada query individual es pequena.',
     isTrue: false,
-  },
-  {
+    explanation: 'El costo total se dispara por multiplicacion de round-trips.',
+  }),
+  flash({
     collectionId: 'software',
-    conceptName: 'SQL: CRUD',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'Las cuatro operaciones básicas en SQL son SELECT, INSERT, _____ y DELETE.',
-    answer: 'UPDATE',
-    explanation: 'SELECT = leer, INSERT = crear, UPDATE = modificar, DELETE = eliminar. Estas cuatro operaciones corresponden a CRUD (Create, Read, Update, Delete) — el patrón universal de operaciones sobre datos.',
-    blankSentence: 'Las cuatro operaciones básicas en SQL son SELECT, INSERT, _____ y DELETE.',
-    blankWord: 'UPDATE',
-    blankOptions: ['UPDATE', 'MODIFY', 'CHANGE', 'ALTER'],
-    correctIndex: 0,
-  },
-  {
+    conceptName: 'Arquitectura',
+    difficulty: 'dificil',
+    question: 'Cuando NO conviene pasar de monolito modular a microservicios?',
+    answer: 'Cuando el cuello de botella no esta probado, el dominio cambia rapido y el equipo aun no domina observabilidad, operaciones distribuidas y contratos.',
+    explanation: 'Sin necesidad real, introduces complejidad prematura.',
+  }),
+  mcq({
     collectionId: 'software',
-    conceptName: 'Autenticación vs Autorización',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'Intentas acceder a /admin estando logueado, pero el servidor responde 403. ¿Qué pasó?',
-    answer: 'La autenticación fue exitosa (el servidor sabe quién eres) pero la autorización falló (no tienes permiso para ese recurso)',
-    explanation: 'Autenticación = ¿quién eres? Autorización = ¿qué puedes hacer? Estar logueado solo resuelve el primero. El 403 dice que el servidor te reconoce pero te niega el acceso.',
+    conceptName: 'Consistencia',
+    difficulty: 'dificil',
+    question: 'Si priorizas disponibilidad en red inestable, que tradeoff aceptas?',
     options: [
-      'Tu sesión expiró y necesitas volver a hacer login',
-      'La autenticación fue exitosa (el servidor sabe quién eres) pero la autorización falló (no tienes permiso para ese recurso)',
-      'Hay un error en el servidor',
-      'La ruta /admin no existe',
+      'Latencia cero siempre',
+      'Consistencia fuerte inmediata en todos los nodos',
+      'Consistencia eventual en algunas lecturas',
+      'Eliminacion de retries',
+    ],
+    correctIndex: 2,
+    explanation: 'CAP obliga decisiones; no se maximizan todas las propiedades a la vez.',
+  }),
+  tf({
+    collectionId: 'patrones',
+    conceptName: 'Sistemas complejos',
+    difficulty: 'dificil',
+    question: 'Optimizar localmente cada subsistema garantiza optimo global.',
+    isTrue: false,
+    explanation: 'Interacciones no lineales pueden empeorar el sistema total.',
+  }),
+  flash({
+    collectionId: 'patrones',
+    conceptName: 'Leverage',
+    difficulty: 'dificil',
+    question: 'Que tipo de intervencion suele tener mayor leverage en sistemas humanos?',
+    answer: 'Cambiar reglas, incentivos o bucles de feedback; no solo empujar mas esfuerzo en el mismo punto.',
+    explanation: 'El leverage vive en estructura, no en volumen de accion.',
+  }),
+  mcq({
+    collectionId: 'automatizacion',
+    conceptName: 'Agentes',
+    difficulty: 'dificil',
+    question: 'En un agente autonomo, cual guardrail reduce mas riesgo operacional?',
+    options: [
+      'Mas temperatura del modelo',
+      'Timeouts, limites de costo y pasos aprobables',
+      'Prompts mas largos sin limites',
+      'Ejecutar siempre con permisos maximos',
     ],
     correctIndex: 1,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Closures',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Una función retorna otra función. La función interna usa una variable de la externa. ¿Qué pasa con esa variable cuando la función externa termina de ejecutarse?',
-    answer: 'La variable sigue viva — la función interna forma un closure y mantiene referencia al scope donde fue creada',
-    explanation: 'Esto es un closure: la función interna "recuerda" el scope de donde viene aunque la externa ya murió. Es la base de React hooks, módulos y la mayoría de patrones de JavaScript moderno.',
-    options: [
-      'La variable es destruida junto con la función externa',
-      'La variable se convierte en global automáticamente',
-      'La variable sigue viva — la función interna forma un closure y mantiene referencia al scope donde fue creada',
-      'Depende de si se usó const o let',
-    ],
+    explanation: 'Control de alcance evita loops costosos y acciones peligrosas.',
+  }),
+  fill({
+    collectionId: 'automatizacion',
+    conceptName: 'Observabilidad',
+    difficulty: 'dificil',
+    question: 'Completa',
+    blankSentence: 'Sin logs estructurados, metricas y trazas, depurar automatizacion en produccion es casi _____.',
+    blankWord: 'ciego',
+    blankOptions: ['rapido', 'barato', 'ciego', 'determinista'],
     correctIndex: 2,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Event loop',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: '`setTimeout(fn, 0)` ejecuta la función inmediatamente porque el delay es 0.',
-    answer: 'Falso',
-    explanation: 'setTimeout nunca es inmediato. La función va a la callback queue y el event loop solo la ejecuta cuando el call stack está vacío. Aunque el delay sea 0ms, siempre espera a que el código síncrono actual termine.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'JWT',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Por qué el payload de un JWT no es suficiente para proteger información sensible aunque estés usando HTTPS?',
-    answer: 'El payload no está encriptado, solo codificado en base64 — cualquiera que tenga el token puede leer su contenido',
-    explanation: 'Base64 no es cifrado — es solo encoding. Cualquiera puede decodificarlo en segundos. La firma del JWT solo garantiza que no fue modificado, no que sea confidencial. Nunca pongas contraseñas o datos sensibles en el payload.',
+    explanation: 'Observabilidad convierte caos en diagnostico accionable.',
+  }),
+  flash({
+    collectionId: 'qa-pro',
+    conceptName: 'Oraculo de test',
+    difficulty: 'dificil',
+    question: 'Que es un oraculo de test y por que es el punto mas subestimado?',
+    answer: 'Es la regla que decide si el resultado es correcto. Sin un oraculo confiable, automatizas ruido y no calidad.',
+    explanation: 'Muchos equipos automatizan pasos, pero no validaciones con valor.',
+  }),
+  mcq({
+    collectionId: 'qa-pro',
+    conceptName: 'Cobertura',
+    difficulty: 'dificil',
+    question: 'Alta cobertura de lineas no garantiza calidad porque:',
     options: [
-      'El JWT puede ser interceptado a pesar de HTTPS',
-      'El payload no está encriptado, solo codificado en base64 — cualquiera que tenga el token puede leer su contenido',
-      'Los JWTs expiran muy rápido',
-      'El servidor no verifica el payload, solo la firma',
+      'La cobertura mide ejecucion, no calidad de aserciones',
+      'Cobertura solo aplica a backend',
+      'Cobertura impide refactor',
+      'Cobertura reemplaza pruebas exploratorias',
     ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'SQL vs NoSQL',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿En qué caso NoSQL es claramente la mejor elección sobre SQL?',
-    answer: 'Cuando el esquema de los datos cambia frecuentemente o es heterogéneo entre registros',
-    explanation: 'SQL brilla con datos estructurados, relaciones complejas y necesidad de consistencia fuerte. NoSQL brilla cuando el esquema no es fijo o necesitas escalar horizontalmente con facilidad. La pregunta no es cuál es mejor en abstracto — es qué modelo encaja con tus datos.',
-    options: [
-      'Cuando necesitas transacciones ACID garantizadas',
-      'Cuando los datos tienen relaciones complejas entre tablas',
-      'Cuando el esquema de los datos cambia frecuentemente o es heterogéneo entre registros',
-      'Cuando la seguridad es prioritaria',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Docker',
-    type: 'fill-blank',
-    difficulty: 'medio',
-    question: 'En Docker, una _____ es el plano inmutable con todo lo necesario para ejecutar la app. Un contenedor es la instancia corriendo.',
-    answer: 'imagen',
-    explanation: 'La imagen es como la clase en POO; el contenedor es la instancia. Puedes tener múltiples contenedores corriendo desde la misma imagen. La imagen no cambia — el contenedor sí tiene estado.',
-    blankSentence: 'En Docker, una _____ es el plano inmutable con todo lo necesario para ejecutar la app. Un contenedor es la instancia corriendo.',
-    blankWord: 'imagen',
-    blankOptions: ['imagen', 'volumen', 'network', 'servicio'],
     correctIndex: 0,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Big O',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Tienes un algoritmo O(n²) que funciona bien con 100 elementos. Con 10,000 elementos, ¿cuánto más lento es aproximadamente?',
-    answer: '10,000 veces más lento',
-    explanation: 'O(n²) crece cuadráticamente: duplicar el input cuadruplica el tiempo. 100x más elementos = 100² = 10,000x más operaciones. Un algoritmo que tarda 1ms con 100 elementos tardará ~10 segundos con 10,000.',
-    options: [
-      '100 veces más lento',
-      '1,000 veces más lento',
-      '10,000 veces más lento',
-      '2 veces más lento',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'fetch y errores HTTP',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Si una petición fetch recibe una respuesta HTTP 404, JavaScript lanza automáticamente una excepción.',
-    answer: 'Falso',
-    explanation: 'fetch solo lanza error si hay fallo de red (el servidor no responde). Para códigos 4xx y 5xx, la Promise resuelve exitosamente — hay que chequear response.ok explícitamente. Este error silencioso es uno de los más comunes en código JavaScript.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Microservicios',
-    type: 'multiple-choice',
+    explanation: 'Puedes ejecutar mucho codigo y aun no detectar fallas importantes.',
+  }),
+  tf({
+    collectionId: 'geopolitica',
+    conceptName: 'Disuasiones',
     difficulty: 'dificil',
-    question: '¿Cuál es el error más común al decidir adoptar microservicios en un proyecto nuevo?',
-    answer: 'Adoptarlos desde el inicio basándose en expectativas de escala futura, antes de que el monolito haya demostrado ser un problema concreto',
-    explanation: 'La complejidad operacional de microservicios (red, distributed tracing, deploy independiente, consistencia eventual) solo vale si el dolor del monolito es real y concreto. La recomendación de arquitectos experimentados: empieza con monolito modular, extrae servicios cuando el dolor lo justifique.',
-    options: [
-      'Usar demasiados lenguajes de programación diferentes',
-      'No tener suficiente experiencia en Docker',
-      'Adoptarlos desde el inicio basándose en expectativas de escala futura, antes de que el monolito haya demostrado ser un problema concreto',
-      'No implementar API Gateway',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'N+1 queries',
-    type: 'flashcard',
+    question: 'La disuasion funciona solo con capacidad militar; credibilidad no importa.',
+    isTrue: false,
+    explanation: 'Sin credibilidad y señales consistentes, capacidad no basta.',
+  }),
+  flash({
+    collectionId: 'geopolitica',
+    conceptName: 'Dependencias',
     difficulty: 'dificil',
-    question: '¿Qué es el problema N+1 en bases de datos y por qué es difícil de detectar en desarrollo?',
-    answer: 'Ocurre cuando tu código hace 1 query para una lista de N registros, luego 1 query adicional POR CADA registro para traer datos relacionados. Resultado: N+1 queries en total. Es difícil de detectar porque en desarrollo hay pocos registros (5 queries pasan inadvertidas), pero en producción con miles de registros se vuelve catastrófico.',
-    explanation: 'La solución es un JOIN que trae todo en una consulta. ORMs como Hibernate o ActiveRecord son famosos por generar este problema silenciosamente si no se configura eager loading.',
-  },
-  {
-    collectionId: 'software',
-    conceptName: 'Variables de entorno',
-    type: 'true-false',
-    difficulty: 'dificil',
-    question: 'Puedes commitear tu archivo .env al repositorio si está en un repo privado, ya que solo tú y tu equipo tienen acceso.',
-    answer: 'Falso',
-    explanation: 'Los repos privados se vuelven públicos por accidente, se hackean, o se comparten con nuevos miembros. Las credenciales en git history persisten para siempre aunque las elimines. Una API key expuesta en GitHub es una key comprometida — los bots de scraping de GitHub la detectan en segundos.',
-    isTrue: false,
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // PATRONES
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'patrones',
-    conceptName: 'Emergencia',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuál de estos es el mejor ejemplo de emergencia?',
-    answer: 'Una neurona no piensa, pero mil millones de neuronas producen consciencia',
-    explanation: 'Emergencia: el sistema tiene propiedades que ninguno de sus componentes tiene individualmente. La neurona no "contiene" pensamiento — el pensamiento aparece de la organización de muchas neuronas. Igual que ninguna molécula de agua es líquida por sí sola.',
-    options: [
-      'Un computador calcula más rápido que un humano',
-      'Una neurona no piensa, pero mil millones de neuronas producen consciencia',
-      'El cuerpo humano crece con más comida',
-      'Un equipo de 10 personas hace el trabajo de 10 personas',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Entropía',
-    type: 'true-false',
-    difficulty: 'facil',
-    question: 'La vida viola la segunda ley de la termodinámica porque mantiene orden localmente.',
-    answer: 'Falso',
-    explanation: 'La segunda ley aplica a sistemas CERRADOS. Los organismos vivos son sistemas abiertos — usan energía del entorno para crear orden local a expensas de aumentar entropía en el entorno total. No violan la ley — la cumplen consumiendo energía.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Retroalimentación',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuál es la diferencia entre retroalimentación positiva y negativa en sistemas?',
-    answer: 'Positiva: el output amplifica el input (crecimiento exponencial o colapso). Negativa: el output regula el input para mantener estabilidad.',
-    explanation: 'Los nombres son contraintuitivos: "negativa" no significa mala — es la que mantiene el termostato en 22°C. "Positiva" no significa buena — puede ser el pánico bancario que se autoalimenta hasta el colapso.',
-    options: [
-      'Positiva aumenta el sistema, negativa lo disminuye',
-      'Positiva: el output amplifica el input (crecimiento exponencial o colapso). Negativa: el output regula el input para mantener estabilidad.',
-      'Son equivalentes en sistemas complejos',
-      'Negativa siempre estabiliza; positiva siempre desestabiliza',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: '80/20',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'El principio de Pareto dice que el 20% de las causas produce el _____ de los efectos.',
-    answer: '80%',
-    explanation: 'No es un truco de productividad — es una ley de distribución de potencia que emerge naturalmente en sistemas con retroalimentación acumulativa. Aparece en negocios, bugs, idiomas, fitness y docenas de dominios más.',
-    blankSentence: 'El principio de Pareto dice que el 20% de las causas produce el _____ de los efectos.',
-    blankWord: '80%',
-    blankOptions: ['80%', '50%', '60%', '90%'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Fractal',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Los fractales en la naturaleza (pulmones, ríos, árboles) son una coincidencia estética sin función práctica.',
-    answer: 'Falso',
-    explanation: 'Los fractales en biología son soluciones de optimización: maximizan superficie en volumen mínimo. Los pulmones tienen área de cancha de tenis en tu pecho gracias a su geometría fractal. La naturaleza usa fractales porque son eficientes, no porque sean bonitos.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Efecto mariposa',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Qué implica realmente el efecto mariposa para la predicción de sistemas caóticos?',
-    answer: 'Que la predicción perfecta a largo plazo es físicamente imposible, no solo prácticamente difícil',
-    explanation: 'No es que los instrumentos de medición sean imprecisos — es que la amplificación de cualquier imprecisión infinitesimal hace que la precisión perfecta sea físicamente irrealizable. El problema no es tecnológico: es fundamental.',
-    options: [
-      'Que los sistemas caóticos son completamente aleatorios',
-      'Que eventos pequeños siempre causan eventos grandes',
-      'Que la predicción perfecta a largo plazo es físicamente imposible, no solo prácticamente difícil',
-      'Que el clima es impredecible porque es demasiado complejo para calcular',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Mapa y territorio',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Korzybski dice "el mapa no es el territorio". ¿Cuál es la implicación más importante para el pensamiento cotidiano?',
-    answer: 'Nuestros modelos mentales son simplificaciones útiles, pero cuando los confundimos con la realidad, los errores se vuelven invisibles',
-    explanation: 'El cerebro opera en mapas para ahorrar energía. El problema es cuando el mapa envejece y el territorio cambió — pero como el mapa se volvió invisible como tal, no lo actualizamos. La actualización de mapas es la operación cognitiva más importante y la más resistida.',
-    options: [
-      'La realidad no puede conocerse directamente',
-      'Nuestros modelos mentales son simplificaciones útiles, pero cuando los confundimos con la realidad, los errores se vuelven invisibles',
-      'Los mapas siempre son inexactos y no deben usarse',
-      'Solo la ciencia puede producir modelos confiables',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Linealidad',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'En sistemas complejos como aprendizaje, relaciones y negocios, el progreso es proporcional al esfuerzo invertido.',
-    answer: 'Falso',
-    explanation: 'El mundo real es no-lineal casi siempre. El aprendizaje tiene umbrales: das semanas sin ver progreso y de repente todo encaja. Los negocios tienen efectos de red que explotan de golpe. Esperar linearidad en sistemas complejos es la fuente de la mayoría de las decepciones estratégicas.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Autopoiesis',
-    type: 'flashcard',
-    difficulty: 'dificil',
-    question: '¿Qué es la autopoiesis y por qué distingue a los sistemas vivos de los mecánicos?',
-    answer: 'Autopoiesis (Maturana y Varela): la capacidad de producirse y mantenerse a sí mismo. Una célula continuamente produce sus propios componentes. Un sistema mecánico (un reloj) también se organiza, pero no se auto-produce — requiere un agente externo para construirlo y repararlo. Lo que define la identidad de un ser vivo no es su composición material en un momento dado sino el proceso continuo de auto-reproducción.',
-    explanation: 'Aplicado más allá de la biología: una cultura, una identidad, una organización son autopoiéticas si activamente se reproducen a sí mismas. Si dejan de hacerlo, se disuelven — independientemente de su historia.',
-  },
-  {
-    collectionId: 'patrones',
-    conceptName: 'Umbral y fase',
-    type: 'multiple-choice',
-    difficulty: 'dificil',
-    question: '¿Qué tienen en común el punto de ebullición del agua, el día en que finalmente entiendes un concepto, y el momento en que un movimiento social alcanza masa crítica?',
-    answer: 'Son transiciones de fase: pequeños cambios cuantitativos que producen cambios cualitativos discontinuos',
-    explanation: 'El sistema se acerca al umbral gradualmente pero el cambio es abrupto. Esto explica por qué los proyectos parecen no avanzar durante semanas y luego explotan. No es magia — es termodinámica social. Identificar los umbrales del sistema que te importa es más valioso que medir el progreso gradual.',
-    options: [
-      'Son ejemplos de retroalimentación negativa',
-      'Siguen distribuciones normales',
-      'Son aleatorios por naturaleza',
-      'Son transiciones de fase: pequeños cambios cuantitativos que producen cambios cualitativos discontinuos',
-    ],
-    correctIndex: 3,
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // GEOPOLÍTICA & PODER
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Hegemonía',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'Gramsci define hegemonía como dominio ejercido principalmente por:',
-    answer: 'Consenso cultural — los dominados internalizan los valores del dominante como sentido común natural',
-    explanation: 'La fuerza es costosa e inestable. La hegemonía es cuando el dominado coopera voluntariamente porque el sistema del dominante le parece el único racional posible. Las películas de Hollywood, los modelos económicos, las redes sociales — son también instrumentos de hegemonía.',
-    options: [
-      'Superioridad militar directa',
-      'Control de los medios de comunicación',
-      'Consenso cultural — los dominados internalizan los valores del dominante como sentido común natural',
-      'Poder económico exclusivamente',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Materialismo histórico',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'Para Marx, la _____ económica (modos de producción, relaciones de propiedad) determina la superestructura cultural, legal e ideológica — no al revés.',
-    answer: 'base',
-    explanation: 'Las ideas dominantes de cada época son las ideas de la clase dominante. La religión, el derecho, la moral — no son autónomos. Son la forma en que el sistema se justifica a sí mismo. Pregunta siempre: ¿quién se beneficia de que esto sea así?',
-    blankSentence: 'Para Marx, la _____ económica (modos de producción, relaciones de propiedad) determina la superestructura cultural, legal e ideológica — no al revés.',
-    blankWord: 'base',
-    blankOptions: ['base', 'cultura', 'ideología', 'moral'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Plusvalía',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Qué es la plusvalía según Marx?',
-    answer: 'El valor que el trabajador produce por encima de su salario, apropiado por el capital',
-    explanation: 'No es una queja moral — es una descripción técnica de la mecánica del capitalismo. Si produces valor equivalente a $200 por hora y cobras $20, la diferencia es plusvalía. El burnout moderno es alienación con otro nombre.',
-    options: [
-      'El beneficio extra que gana el capitalista por ser más inteligente',
-      'El impuesto que el gobierno cobra sobre las ganancias',
-      'El valor que el trabajador produce por encima de su salario, apropiado por el capital',
-      'El costo adicional de producir más unidades',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Doctrina Monroe',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'La Doctrina Monroe de 1823 fue principalmente defensiva: proteger América Latina de la interferencia europea.',
-    answer: 'Falso',
-    explanation: 'En la práctica fue la justificación para 200 años de intervenciones, golpes de estado e invasiones de EE.UU. en América Latina. "América para los americanos" significó "América para EE.UU." Las intervenciones en Cuba, Guatemala, Chile, Nicaragua y decenas de países más se realizaron bajo este marco.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Petrodólar',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Por qué el acuerdo petrodólar de 1973 garantiza la demanda global de dólares estadounidenses?',
-    answer: 'Porque exige que el petróleo global se venda en dólares — cualquier país que quiera comprar petróleo necesita dólares primero',
-    explanation: 'No es que EE.UU. sea productivo — es que el petróleo requiere dólares por acuerdo. Esto crea demanda estructural constante. Cada país que intentó vender petróleo en otra moneda (Irak en 2000, Libia) enfrentó consecuencias militares.',
-    options: [
-      'Porque EE.UU. tiene la economía más grande del mundo',
-      'Porque el dólar está respaldado por oro desde Bretton Woods',
-      'Porque exige que el petróleo global se venda en dólares — cualquier país que quiera comprar petróleo necesita dólares primero',
-      'Porque los bancos centrales prefieren el dólar por su estabilidad',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Doctrina del shock',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Por qué el capitalismo de libre mercado radical requiere shock para implementarse según Naomi Klein?',
-    answer: 'Porque en condiciones normales, las personas votarían en contra de las políticas que lo implementan — el shock desactiva la resistencia política',
-    explanation: 'Chile 1973, Rusia 1991, Irak 2003, Grecia 2010. La crisis real o fabricada genera pánico que suspende el pensamiento crítico y abre ventanas para reformas que en condiciones normales serían imposibles. El shock no es un accidente que aprovechan — a veces es el plan.',
-    options: [
-      'Porque los economistas necesitan tiempo para implementar las reformas',
-      'Porque el libre mercado es técnicamente complejo de administrar',
-      'Porque en condiciones normales, las personas votarían en contra de las políticas que lo implementan — el shock desactiva la resistencia política',
-      'Porque los mercados necesitan desregulación urgente',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Lawfare',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'El lawfare es exclusivamente una táctica de gobiernos autoritarios contra líderes democráticos.',
-    answer: 'Falso',
-    explanation: 'Es una herramienta de poder sin ideología propia. Se usa contra cualquier líder que represente una amenaza a intereses establecidos, independientemente de su orientación. El patrón en América Latina incluye investigaciones coordinadas con el Departamento de Justicia de EE.UU., fiscales entrenados en programas de "cooperación", y medios amplificando la narrativa.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'geopolitica',
-    conceptName: 'Imperialismo moderno',
-    type: 'flashcard',
-    difficulty: 'dificil',
-    question: '¿En qué se diferencia el imperialismo moderno del colonialismo clásico, y por qué es más eficiente?',
-    answer: 'El colonialismo clásico extraía recursos con ejércitos visibles. El imperialismo moderno extrae valor con deuda soberana, condicionalidades del FMI, tratados comerciales asimétricos y bases militares que casi nunca disparan. El mecanismo más eficiente: el país administra su propia subordinación y la llama soberanía. El costo político y militar para el centro hegemónico es mínimo.',
-    explanation: 'Cuando un gobierno intenta salirse del esquema — Allende, Gaddafi, Lumumba, Mossadegh — aparece el mecanismo de corrección, que puede ser golpe, lawfare, sanciones o intervención directa.',
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // HERMETISMO & MAGIA
-  // ═══════════════════════════════════════════════════════
-
-  {
+    question: 'Como puede una dependencia economica ser a la vez ventaja y vulnerabilidad?',
+    answer: 'Da escala y eficiencia, pero crea puntos de presion estrategica si un nodo critico se interrumpe.',
+    explanation: 'Resiliencia requiere redundancia selectiva, no aislamiento total.',
+  }),
+  tf({
     collectionId: 'hermetismo',
-    conceptName: '7 principios herméticos',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'El primero de los 7 principios herméticos del Kybalion dice que "todo es _____".',
-    answer: 'Mente',
-    explanation: 'Principio de Mentalismo: el universo es mental en su naturaleza fundamental. No es metáfora — es una afirmación sobre la estructura de lo real. Precede por siglos al problema del observador en mecánica cuántica, que plantea preguntas similares sobre el papel de la conciencia en la realidad.',
-    options: ['Energía', 'Mente', 'Vibración', 'Dios'],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'hermetismo',
-    conceptName: 'Como arriba es abajo',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'El principio hermético de _____ dice que los patrones que rigen lo macro se repiten en lo micro, a todas las escalas.',
-    answer: 'Correspondencia',
-    explanation: 'Tu sistema nervioso y el internet son la misma arquitectura. La espiral de la galaxia y del nautilus son el mismo patrón. El universo tiene un vocabulario limitado de formas y lo reutiliza en todos los dominios.',
-    blankSentence: 'El principio hermético de _____ dice que los patrones que rigen lo macro se repiten en lo micro, a todas las escalas.',
-    blankWord: 'Correspondencia',
-    blankOptions: ['Correspondencia', 'Mentalismo', 'Vibración', 'Polaridad'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'hermetismo',
-    conceptName: 'Gnosticismo',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Qué distingue la salvación gnóstica de la salvación cristiana ortodoxa?',
-    answer: 'El gnosticismo busca salvación a través del gnosis (conocimiento directo de lo divino), no de la fe ni intermediarios',
-    explanation: 'Esto es exactamente por qué la Iglesia destruyó sistemáticamente el gnosticismo — elimina la necesidad del clero como intermediario. Si puedes acceder directamente a lo divino a través del conocimiento, ¿para qué necesitas una institución religiosa?',
-    options: [
-      'El gnosticismo cree en la reencarnación; el cristianismo no',
-      'El gnosticismo busca salvación a través del gnosis (conocimiento directo de lo divino), no de la fe ni intermediarios',
-      'El gnosticismo rechaza a Jesucristo completamente',
-      'El gnosticismo es politeísta; el cristianismo es monoteísta',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'hermetismo',
-    conceptName: 'Maya y simulacro',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'El concepto vedántico de maya y el simulacro de Baudrillard afirman lo mismo: que el mundo material no existe.',
-    answer: 'Falso',
-    explanation: 'Ninguno de los dos dice que la realidad no existe. Dicen que lo que percibes como la realidad última es una capa de interpretación sobre algo más fundamental. La distinción es crucial: no es nihilismo, es epistemología sobre los límites de la percepción.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'hermetismo',
-    conceptName: 'Alquimia y Jung',
-    type: 'multiple-choice',
+    conceptName: 'Practica simbolica',
     difficulty: 'dificil',
-    question: 'Jung dedicó 20 años a analizar textos alquímicos. ¿Qué encontró?',
-    answer: 'Los procesos alquímicos describían simbólicamente los mismos procesos de transformación psíquica que aparecían en los sueños de sus pacientes',
-    explanation: 'La alquimia no era solo química primitiva — era un sistema de transformación interior codificado en lenguaje material. La "transmutación del plomo en oro" es la metáfora exterior del proceso de integración psicológica. El lenguaje era diferente; el mapa era el mismo.',
-    options: [
-      'Los alquimistas habían descubierto fórmulas químicas reales olvidadas',
-      'Los textos alquímicos eran alegorías religiosas sin valor psicológico',
-      'Los procesos alquímicos describían simbólicamente los mismos procesos de transformación psíquica que aparecían en los sueños de sus pacientes',
-      'La alquimia era un sistema de conocimiento astronómico codificado',
-    ],
-    correctIndex: 2,
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // TRABAJO ACTUAL (Rotoplas)
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Proyectos en Jira',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuáles son los 3 proyectos principales en Jira de Rotoplas?',
-    answer: 'Dev Interno, DPM (Dynamic Price Manager) y E-commerce',
-    explanation: 'Cada proyecto es un contexto diferente. Si abres un ticket en el proyecto equivocado, nadie lo verá. Dev Interno = herramientas internas. DPM = precios de tinacos/cisternas. E-commerce = la tienda B2B+B2C.',
-    options: [
-      'Frontend, Backend y QA',
-      'Dev Interno, DPM (Dynamic Price Manager) y E-commerce',
-      'B2B, B2C y Pagos',
-      'Rotoplas, Sideral y Open Pay',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Open Pay: correos',
-    type: 'true-false',
-    difficulty: 'facil',
-    question: 'B2B y B2C comparten el mismo correo para verificar pagos en Open Pay.',
-    answer: 'Falso',
-    explanation: 'B2B y B2C tienen correos SEPARADOS en Open Pay. Si la orden fue B2B y buscas con el correo B2C, no va a aparecer. Este es el error #1 que hace pensar que algo está roto cuando en realidad estás buscando en el lugar equivocado.',
+    question: 'Una practica simbolica robusta debe ignorar contexto historico y psicologico.',
     isTrue: false,
-  },
-  {
+    explanation: 'Sin contexto, la practica pierde calibracion y criterio.',
+  }),
+  flash({
     collectionId: 'rotoplas',
-    conceptName: 'Regla del efectivo',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'La opción de pago en efectivo en Rotoplace SOLO aparece si el carrito suma más de $_____.',
-    answer: '5,000',
-    explanation: 'No es un bug — es una regla de negocio. Si quitas un producto y el carrito baja de $5,000, la opción de efectivo desaparece. Documentar esto evita reportar un falso positivo.',
-    blankSentence: 'La opción de pago en efectivo en Rotoplace SOLO aparece si el carrito suma más de $_____.',
-    blankWord: '5,000',
-    blankOptions: ['5,000', '1,000', '10,000', '3,000'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Commerce Tools',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'Si el front muestra un precio diferente al que tiene Commerce Tools, ¿dónde está el bug?',
-    answer: 'En el front — Commerce Tools es la fuente de verdad de precios y estado de productos',
-    explanation: 'Commerce Tools tiene la lista de productos, variantes por SKU, Business Units y el estado real de cada orden. Cuando haya discrepancia entre lo que muestra el front y Commerce Tools, el bug está siempre en el front o en la sincronización.',
-    options: [
-      'En Commerce Tools — puede estar desactualizado',
-      'Hay que verificar en Open Pay para determinar cuál es correcto',
-      'En el front — Commerce Tools es la fuente de verdad de precios y estado de productos',
-      'En la base de datos — puede haber inconsistencia',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Tipos de pago en Open Pay',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Buscas un pago en efectivo en Open Pay y no aparece en la sección principal. ¿Dónde buscarlo?',
-    answer: 'En la sección Painet — los pagos en efectivo están ahí, no en la sección general de pagos',
-    explanation: 'Open Pay separa los pagos en efectivo (Painet) de las tarjetas. Si checklist rápido no ayuda: ¿correo correcto? ¿sección correcta? ¿procesó el pago o quedó pendiente? La mayoría de "bugs de pago" son errores de búsqueda.',
-    options: [
-      'En el historial de transacciones generales',
-      'En la sección Painet — los pagos en efectivo están ahí, no en la sección general de pagos',
-      'En el panel de administración de B2B',
-      'En Commerce Tools — todos los pagos se sincronizan ahí',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Bug report con DevTools',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Antes de reportar un bug, abres DevTools → Network → reproduces el error. ¿Por qué esto mejora radicalmente el bug report?',
-    answer: 'Porque puedes ver exactamente qué endpoint falló, con qué payload, y qué respuesta dio el servidor — convirtiendo "no funciona el botón" en evidencia técnica accionable',
-    explanation: 'Un bug report con "el endpoint /api/orders devuelve 500 con este payload" se resuelve antes que "el botón no funciona". Los devs pueden reproducirlo directamente sin jugar al teléfono descompuesto.',
-    options: [
-      'Porque demuestra que el QA sabe usar herramientas avanzadas',
-      'Porque los logs de la consola siempre contienen el error',
-      'Porque puedes ver exactamente qué endpoint falló, con qué payload, y qué respuesta dio el servidor — convirtiendo "no funciona el botón" en evidencia técnica accionable',
-      'Porque el Network tab muestra el código fuente del frontend',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Ciclo de vida de órdenes',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Las órdenes de lavado de Rotoplace las avanza el QA junto con las órdenes normales de producto.',
-    answer: 'Falso',
-    explanation: 'Las órdenes de lavado las avanza Francisco Abel específicamente — no el QA. El QA avanza las órdenes de productos. Mezclar responsabilidades aquí puede dejar órdenes de lavado atascadas o crear confusión en el flujo.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'rotoplas',
-    conceptName: 'Validar matemáticas del checkout',
-    type: 'multiple-choice',
+    conceptName: 'Ejecucion sostenida',
     difficulty: 'dificil',
-    question: 'En una orden encuentras: precio base $1,000, descuento $100, IVA 16%, total mostrado $1,044. ¿Hay bug?',
-    answer: 'Sí — si el IVA se calcula sobre el precio con descuento: ($1,000 - $100) × 1.16 = $1,044 es correcto. Pero si el front calcula IVA sobre el precio base y LUEGO aplica descuento, el total sería diferente.',
-    explanation: 'El orden de operaciones importa. Hay que verificar si el IVA se aplica antes o después del descuento — y si el front lo hace igual que Commerce Tools. Si no cuadra, hay bug en la lógica de precios.',
-    options: [
-      'No, $1,044 es el resultado correcto siempre',
-      'Sí, el total correcto siempre debería ser $1,044 - $16 = $1,028',
-      'Sí — si el IVA se calcula sobre el precio con descuento: ($1,000 - $100) × 1.16 = $1,044 es correcto. Pero si el front calcula IVA sobre el precio base y LUEGO aplica descuento, el total sería diferente.',
-      'No se puede determinar sin ver el código',
-    ],
-    correctIndex: 2,
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // AUTOMATIZACIÓN & AGENTES
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Cuándo automatizar',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuál es la pregunta correcta para decidir si automatizar una tarea?',
-    answer: '¿Cuántas veces voy a hacer esto? Si es más de 100, automatizar es obligatorio.',
-    explanation: 'Automatizar una tarea única tiene costo sin retorno. El umbral mental: si lo harás más de 10 veces, analiza. Más de 100 veces, automatiza. La automatización libera capacidad cognitiva para lo que las máquinas no pueden hacer.',
-    options: [
-      '¿Es técnicamente posible automatizar esto?',
-      '¿Cuántas veces voy a hacer esto? Si es más de 100, automatizar es obligatorio.',
-      '¿Tengo el presupuesto para comprar las herramientas?',
-      '¿Es la tarea lo suficientemente importante?',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Web scraping vs API',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuándo deberías usar scraping en lugar de una API oficial?',
-    answer: 'Cuando la fuente no ofrece API, la API tiene limitaciones que el scraping no, o los datos no están disponibles de otra forma',
-    explanation: 'Siempre preferir API sobre scraping: más estable, más legal, menos frágil. El scraping se rompe con cualquier cambio de HTML. Pero cuando no hay alternativa, el scraping es la única opción.',
-    options: [
-      'Siempre, porque el scraping es más rápido que una API',
-      'Cuando la fuente no ofrece API, la API tiene limitaciones que el scraping no, o los datos no están disponibles de otra forma',
-      'Cuando quieres más datos de los que la API permite',
-      'Cuando la API requiere pago',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Playwright vs Selenium',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Cuál es la principal ventaja de Playwright sobre Selenium para scraping moderno?',
-    answer: 'Playwright maneja JavaScript asíncrono y SPAs nativamente, sin necesidad de configurar drivers externos',
-    explanation: 'Selenium fue diseñado en una era pre-SPA. Playwright espera automáticamente a que elementos estén disponibles, maneja múltiples tabs y contextos con más facilidad, y tiene menor overhead de configuración. Para apps modernas con React/Vue, Playwright es la elección natural.',
-    options: [
-      'Playwright es más rápido en sitios estáticos',
-      'Playwright solo funciona con Python',
-      'Playwright maneja JavaScript asíncrono y SPAs nativamente, sin necesidad de configurar drivers externos',
-      'Playwright tiene mejor soporte para Internet Explorer',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Rate limiting',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'Añadir delays aleatorios entre requests de scraping es solo una cortesía hacia el servidor — no afecta la probabilidad de ser bloqueado.',
-    answer: 'Falso',
-    explanation: 'Los sistemas de detección de bots analizan patrones temporales. Requests a intervalos exactamente regulares son la firma más obvia de un bot. Los delays aleatorios imitan patrones humanos y reducen significativamente la probabilidad de ser bloqueado.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Agentes de IA',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Qué distingue a un agente de IA de un simple chatbot o pipeline de LLM?',
-    answer: 'El agente puede tomar decisiones sobre qué herramientas usar y en qué orden, basándose en el resultado de acciones previas',
-    explanation: 'Un pipeline LLM es una secuencia fija: input → LLM → output. Un agente tiene un loop: observa, piensa, actúa, observa el resultado, decide la siguiente acción. Puede usar herramientas, buscar en internet, ejecutar código — y adaptar su plan según lo que encuentre.',
-    options: [
-      'Un agente usa un modelo de IA más grande',
-      'Un agente puede responder en múltiples idiomas',
-      'El agente puede tomar decisiones sobre qué herramientas usar y en qué orden, basándose en el resultado de acciones previas',
-      'Un agente siempre es más preciso que un chatbot',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Cron jobs',
-    type: 'fill-blank',
-    difficulty: 'medio',
-    question: 'Un cron job con expresión `0 9 * * 1-5` ejecuta la tarea a las _____ de lunes a viernes.',
-    answer: '9:00 AM',
-    explanation: 'Formato cron: minuto hora día-mes mes día-semana. `0 9` = minuto 0, hora 9 = 9:00 AM. `* *` = cualquier día del mes, cualquier mes. `1-5` = lunes a viernes. Entender cron es fundamental para cualquier automatización periódica.',
-    blankSentence: 'Un cron job con expresión `0 9 * * 1-5` ejecuta la tarea a las _____ de lunes a viernes.',
-    blankWord: '9:00 AM',
-    blankOptions: ['9:00 AM', '9:00 PM', 'medianoche', 'cada 9 minutos'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'LangChain',
-    type: 'true-false',
-    difficulty: 'dificil',
-    question: 'LangChain es la herramienta estándar recomendada para construir agentes de IA en producción.',
-    answer: 'Falso',
-    explanation: 'LangChain añade abstracción y complejidad que a menudo oscurece qué está pasando realmente. Para la mayoría de casos, llamar directamente al SDK del LLM es más simple, más debuggeable y más rápido. LangChain puede ser útil para prototipado rápido, pero no es la respuesta por defecto para producción.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'automatizacion',
-    conceptName: 'Patrón ReAct',
-    type: 'flashcard',
-    difficulty: 'dificil',
-    question: '¿Qué es el patrón ReAct en agentes de IA y cómo estructura el razonamiento?',
-    answer: 'ReAct (Reasoning + Acting) es un patrón donde el agente alterna entre Pensar (Thought: ¿qué sé? ¿qué necesito?), Actuar (Action: uso esta herramienta) y Observar (Observation: esto es lo que obtuve). El ciclo se repite hasta tener suficiente información para dar una respuesta final. La clave: el pensamiento explícito antes de cada acción mejora dramáticamente la calidad del razonamiento.',
-    explanation: 'Sin el paso de "pensar explícitamente", los LLMs tienden a actuar impulsivamente y cometer errores que detectarían si se tomaran un momento para razonar. ReAct lo fuerza estructuralmente.',
-  },
-
-  // ═══════════════════════════════════════════════════════
-  // QA & TESTING PRO
-  // ═══════════════════════════════════════════════════════
-
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'QA vs Testing',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Cuál es la diferencia entre QA y testing?',
-    answer: 'Testing es encontrar bugs en el producto. QA es asegurar la calidad del proceso que produce el producto.',
-    explanation: 'Un tester ejecuta casos de prueba. Un QA también cuestiona los criterios de aceptación, el proceso de desarrollo, y si el equipo tiene las condiciones para producir calidad. La responsabilidad de la calidad es del equipo, no solo del QA.',
-    options: [
-      'No hay diferencia — son sinónimos en la industria',
-      'Testing es automatizado; QA es manual',
-      'Testing es encontrar bugs en el producto. QA es asegurar la calidad del proceso que produce el producto.',
-      'QA trabaja en producción; testing en staging',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Pirámide de testing',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: '¿Por qué la pirámide de testing recomienda más tests unitarios que E2E?',
-    answer: 'Los unit tests son más rápidos, más baratos de mantener y más precisos para aislar el origen de los bugs',
-    explanation: 'Un E2E test que falla puede significar cualquier cosa. Un unit test que falla apunta exactamente dónde está el problema. Los E2E tests son lentos, frágiles y caros de mantener — deben cubrir solo los flujos críticos de negocio.',
-    options: [
-      'Los unit tests son más fáciles de escribir para desarrolladores',
-      'Los E2E tests requieren infraestructura que no siempre está disponible',
-      'Los unit tests son más rápidos, más baratos de mantener y más precisos para aislar el origen de los bugs',
-      'La pirámide es solo una recomendación teórica sin base práctica',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Severidad vs Prioridad',
-    type: 'multiple-choice',
-    difficulty: 'facil',
-    question: 'El logo de la empresa se muestra pixelado en la homepage. Un botón de pago no funciona. ¿Cuál tiene mayor severidad y cuál mayor prioridad?',
-    answer: 'El botón de pago tiene mayor severidad (bloquea función crítica). La prioridad también es mayor para el botón, pero el logo podría tener prioridad alta si es un lanzamiento importante.',
-    explanation: 'Severidad = impacto técnico en el sistema. Prioridad = urgencia de solución según el negocio. Pueden divergir: un bug severo en función poco usada tiene baja prioridad. Un bug cosmético en la homepage principal puede tener alta prioridad por imagen de marca.',
-    options: [
-      'Ambos tienen igual severidad y prioridad',
-      'El logo tiene mayor severidad por afectar a todos los usuarios',
-      'El botón de pago tiene mayor severidad (bloquea función crítica). La prioridad también es mayor para el botón, pero el logo podría tener prioridad alta si es un lanzamiento importante.',
-      'La prioridad siempre es igual a la severidad',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Bug report',
-    type: 'fill-blank',
-    difficulty: 'facil',
-    question: 'Un buen bug report siempre incluye pasos para reproducir, resultado actual, resultado _____ y evidencia.',
-    answer: 'esperado',
-    explanation: 'Sin el resultado esperado, el desarrollador no sabe cuál es el comportamiento correcto. Sin pasos para reproducir, no puede encontrar el bug. Sin evidencia (screenshot/video/logs), puede que el bug sea intermitente y nunca aparezca.',
-    blankSentence: 'Un buen bug report siempre incluye pasos para reproducir, resultado actual, resultado _____ y evidencia.',
-    blankWord: 'esperado',
-    blankOptions: ['esperado', 'exitoso', 'correcto', 'deseado'],
-    correctIndex: 0,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Smoke testing',
-    type: 'true-false',
-    difficulty: 'facil',
-    question: 'El smoke testing verifica exhaustivamente todas las funcionalidades del sistema.',
-    answer: 'Falso',
-    explanation: 'El smoke test verifica lo MÍNIMO necesario para saber si el sistema está en condiciones de ser probado. Es la prueba de "¿enciende?". Si el smoke test falla, no tiene sentido hacer testing completo — el build está roto.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Given-When-Then',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: 'Un criterio de aceptación escrito como "Dado que el usuario tiene el carrito con $6,000 en productos, Cuando llega al checkout, Entonces debe ver la opción de pago en efectivo". ¿Cuál es el valor de esta estructura?',
-    answer: 'Hace el criterio testeable, sin ambigüedad — cualquiera puede escribir el test o ejecutarlo manualmente sin interpretación',
-    explanation: 'Given-When-Then elimina el "depende de cómo lo interpretes". El Given define el estado inicial, el When define la acción, el Then define el resultado verificable. Si el criterio no puede escribirse en esta estructura, probablemente está mal definido.',
-    options: [
-      'Es solo una convención de nomenclatura sin impacto real',
-      'Hace el criterio testeable, sin ambigüedad — cualquiera puede escribir el test o ejecutarlo manualmente sin interpretación',
-      'Es útil solo para tests automatizados, no para testing manual',
-      'Ayuda a organizar la documentación del proyecto',
-    ],
-    correctIndex: 1,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Testing exploratorio',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Cuándo es más valioso el testing exploratorio que los casos de prueba planificados?',
-    answer: 'Al principio del desarrollo, en áreas de alto riesgo desconocido, y cuando los casos de prueba ya cubrieron los flujos esperados',
-    explanation: 'Los casos planificados verifican lo que YA sabes. El testing exploratorio descubre lo que no sabías que necesitabas probar. El QA aplica su criterio para encontrar caminos inesperados que un script nunca seguiría.',
-    options: [
-      'Siempre — los casos de prueba son demasiado rígidos',
-      'Nunca — el testing debe ser reproducible y documentado',
-      'Al principio del desarrollo, en áreas de alto riesgo desconocido, y cuando los casos de prueba ya cubrieron los flujos esperados',
-      'Solo en sistemas sin documentación técnica',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Mocks y stubs',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Cuál es el riesgo principal de usar mocks extensivos en los tests de integración?',
-    answer: 'Los tests pasan aunque el sistema real falle — el mock simula el comportamiento esperado de la dependencia, no su comportamiento real',
-    explanation: 'Un mock que simula "la DB siempre devuelve X" puede hacer pasar todos los tests mientras la DB real tiene una columna diferente o un tipo de dato distinto. Los tests de integración deberían probar la integración real — usar mocks aquí derrota el propósito.',
-    options: [
-      'Los mocks hacen los tests más lentos',
-      'Los mocks requieren demasiado código para configurar',
-      'Los tests pasan aunque el sistema real falle — el mock simula el comportamiento esperado de la dependencia, no su comportamiento real',
-      'Los mocks no son compatibles con todos los frameworks de testing',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'TDD',
-    type: 'true-false',
-    difficulty: 'medio',
-    question: 'En TDD (Test-Driven Development), el objetivo principal es tener alta cobertura de código.',
-    answer: 'Falso',
-    explanation: 'El objetivo de TDD es diseñar el código. Escribir el test primero te fuerza a pensar en la interfaz antes de la implementación. La alta cobertura es un subproducto, no el fin. 100% de cobertura puede coexistir con tests que no prueban nada meaningful.',
-    isTrue: false,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Page Object Model',
-    type: 'multiple-choice',
-    difficulty: 'medio',
-    question: '¿Por qué el Page Object Model (POM) reduce el mantenimiento de tests E2E?',
-    answer: 'Centraliza los selectores y acciones de cada página en un objeto — cuando el HTML cambia, solo se actualiza el POM, no cada test individualmente',
-    explanation: 'Sin POM: si cambian 20 tests que usan el mismo selector, actualizas 20 archivos. Con POM: actualizas el objeto de la página una vez. Es el principio DRY (Don\'t Repeat Yourself) aplicado a automatización.',
-    options: [
-      'POM hace los tests más rápidos de ejecutar',
-      'POM elimina la necesidad de selectores CSS',
-      'POM centraliza los selectores y acciones de cada página en un objeto — cuando el HTML cambia, solo se actualiza el POM, no cada test individualmente',
-      'POM solo es útil en Selenium, no en Playwright',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Tests flaky',
-    type: 'flashcard',
-    difficulty: 'dificil',
-    question: '¿Por qué los tests flaky son más peligrosos que no tener tests?',
-    answer: 'Un test que falla intermitentemente entrena al equipo a ignorar los fallos ("es el flaky de siempre"). Cuando el test falla por un bug real, nadie lo investiga. El test existe y da falsa sensación de cobertura, pero ha perdido completamente su utilidad como red de seguridad.',
-    explanation: 'La solución no es siempre arreglar el test — a veces hay que eliminarlo. Un test que no es confiable es peor que ningún test porque da falsa confianza.',
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Happy path vs Edge cases',
-    type: 'multiple-choice',
-    difficulty: 'dificil',
-    question: 'El QA probó exitosamente el flujo de compra completo. ¿Cuáles son los edge cases más críticos que probablemente no cubrió?',
-    answer: 'Campos con caracteres especiales, sesión que expira a mitad del checkout, concurrencia (dos usuarios comprando el último stock simultáneamente), y comportamiento offline',
-    explanation: 'El happy path funciona casi siempre. Los bugs de producción viven en los bordes: inputs inesperados, condiciones de carrera, timeouts, estados inconsistentes. El QA que solo prueba el happy path encuentra lo que el desarrollador ya probó.',
-    options: [
-      'Pruebas de rendimiento con muchos usuarios simultáneos',
-      'Pruebas en diferentes navegadores',
-      'Campos con caracteres especiales, sesión que expira a mitad del checkout, concurrencia (dos usuarios comprando el último stock simultáneamente), y comportamiento offline',
-      'Pruebas de accesibilidad con lectores de pantalla',
-    ],
-    correctIndex: 2,
-  },
-  {
-    collectionId: 'qa-pro',
-    conceptName: 'Shift left',
-    type: 'multiple-choice',
-    difficulty: 'dificil',
-    question: '"Shift left testing" significa involucrar QA más temprano. ¿Cuál es el beneficio económico concreto de esto?',
-    answer: 'Un bug encontrado en diseño/requisitos cuesta 10-100x menos que uno encontrado en producción — el costo crece exponencialmente con cada fase',
-    explanation: 'Los estudios de IBM y NIST muestran que el costo de corregir un defecto escala: $1 en diseño, $10 en desarrollo, $100 en QA, $1,000+ en producción. El QA en la fase de refinamiento de historias puede eliminar ambigüedades antes de que se implementen mal.',
-    options: [
-      'Reduce el número total de bugs en el código',
-      'Un bug encontrado en diseño/requisitos cuesta 10-100x menos que uno encontrado en producción — el costo crece exponencialmente con cada fase',
-      'Permite automatizar más tests desde el inicio',
-      'Reduce el tiempo de los sprints',
-    ],
-    correctIndex: 1,
-  },
+    question: 'Disena una regla de operacion para dias de baja energia sin perder traccion.',
+    answer: 'Define version minima del dia: 1 tarea troncal, 1 tarea de mantenimiento, 1 cierre rapido. Si se cumple, el dia cuenta.',
+    explanation: 'Sostener consistencia supera picos aislados de productividad.',
+  }),
 ];
 
-// ─── Helpers de acceso ────────────────────────────────────────────────────────
-
 export function getCuratedByCollection(collectionId: string): QuizQuestion[] {
-  return CURATED_QUESTIONS.filter(q => q.collectionId === collectionId);
+  return CURATED_QUESTIONS.filter((question) => question.collectionId === collectionId);
 }
 
 export function getCuratedByDifficulty(difficulty: QuizQuestion['difficulty']): QuizQuestion[] {
-  return CURATED_QUESTIONS.filter(q => q.difficulty === difficulty);
+  return CURATED_QUESTIONS.filter((question) => question.difficulty === difficulty);
 }
 
 export function getCuratedFiltered(
@@ -1193,9 +598,22 @@ export function getCuratedFiltered(
   difficulty: QuizQuestion['difficulty'],
   count: number
 ): QuizQuestion[] {
-  let pool = CURATED_QUESTIONS.filter(q => q.difficulty === difficulty);
-  if (collectionId) pool = pool.filter(q => q.collectionId === collectionId);
-  // Shuffle
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  const primary = CURATED_QUESTIONS.filter(
+    (question) =>
+      question.difficulty === difficulty &&
+      (collectionId ? question.collectionId === collectionId : true)
+  );
+  if (primary.length >= count) return shuffleArray(primary).slice(0, count);
+
+  const used = new Set(primary.map((question) => `${question.collectionId}-${question.question}`));
+  const secondary = CURATED_QUESTIONS.filter(
+    (question) =>
+      !used.has(`${question.collectionId}-${question.question}`) &&
+      (collectionId ? question.collectionId === collectionId : true)
+  );
+  const tertiary = CURATED_QUESTIONS.filter(
+    (question) => !used.has(`${question.collectionId}-${question.question}`)
+  );
+
+  return shuffleArray([...primary, ...secondary, ...tertiary]).slice(0, count);
 }
