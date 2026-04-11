@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { DropCard } from '@/components/DropCard';
+import { EmptyState } from '@/components/EmptyState';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { formatSubcategoryLabel } from '@/lib/dropContent';
 import { cn } from '@/lib/utils';
@@ -146,13 +147,11 @@ export function Explore() {
 
       <div className="p-4">
         {results.length === 0 ? (
-          <div className="py-16 text-center text-white/52">
-            <p className="mb-3 text-3xl">🔎</p>
-            <p className="mb-1 font-semibold text-white">Sin resultados</p>
-            <p className="text-sm">
-              {query ? `No hay drops para "${query}"` : 'Prueba cambiando los filtros'}
-            </p>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title="Sin resultados"
+            description={query ? `No hay drops para "${query}"` : 'Prueba cambiando los filtros para ver mas contenido'}
+          />
         ) : (
           <>
             <p className="mb-3 text-[13px] text-white/45">

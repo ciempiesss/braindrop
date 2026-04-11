@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Home, Search, TrendingUp, Brain, Folder, Settings } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -9,12 +10,12 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { id: 'feed', label: 'Feed', icon: 'Home' },
-  { id: 'explore', label: 'Explorar', icon: 'Find' },
-  { id: 'progress', label: 'Progreso', icon: 'Track' },
-  { id: 'quiz', label: 'Quiz', icon: 'Quiz' },
-  { id: 'collections', label: 'Colecciones', icon: 'Stack' },
-  { id: 'settings', label: 'Config', icon: 'Prefs' },
+  { id: 'feed', label: 'Feed', icon: Home },
+  { id: 'explore', label: 'Explorar', icon: Search },
+  { id: 'progress', label: 'Progreso', icon: TrendingUp },
+  { id: 'quiz', label: 'Quiz', icon: Brain },
+  { id: 'collections', label: 'Colecciones', icon: Folder },
+  { id: 'settings', label: 'Config', icon: Settings },
 ];
 
 export function Sidebar({ activeTab, onTabChange, dropsForReview, onClose }: SidebarProps) {
@@ -54,8 +55,8 @@ export function Sidebar({ activeTab, onTabChange, dropsForReview, onClose }: Sid
                   : 'border-white/4 bg-[linear-gradient(180deg,rgba(21,27,37,0.96),rgba(16,21,30,0.98))] text-white/72 shadow-[12px_12px_24px_rgba(2,8,23,0.28),-7px_-7px_16px_rgba(255,255,255,0.025)] hover:text-white'
               )}
             >
-              <span className="min-w-[52px] rounded-2xl border border-white/5 bg-[linear-gradient(180deg,rgba(24,31,42,0.94),rgba(18,23,31,0.98))] px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-white/52 shadow-[inset_3px_3px_8px_rgba(2,8,23,0.4),inset_-2px_-2px_6px_rgba(255,255,255,0.02)]">
-                {item.icon}
+              <span className="flex min-w-[52px] items-center justify-center rounded-2xl border border-white/5 bg-[linear-gradient(180deg,rgba(24,31,42,0.94),rgba(18,23,31,0.98))] px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-white/52 shadow-[inset_3px_3px_8px_rgba(2,8,23,0.4),inset_-2px_-2px_6px_rgba(255,255,255,0.02)]">
+                <item.icon size={18} />
               </span>
               <span>{item.label}</span>
               {showBadge ? (

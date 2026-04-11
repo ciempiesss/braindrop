@@ -3,6 +3,7 @@ import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { DropCard } from '@/components/DropCard';
 import { Compose } from '@/components/Compose';
 import { AIChat } from '@/components/AIChat';
+import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import type { Drop } from '@/types';
 import {
@@ -548,23 +549,25 @@ export function Feed({
         onTouchEnd={handleTouchEnd}
       >
         {displayedDrops.length === 0 ? (
-          <div className="p-8 text-center text-[#71767b]">
-            {activeTab === 'favoritos' ? (
-              <>
-                <p className="mb-2 text-2xl">Favoritos</p>
-                <p>Aun no tienes favoritos</p>
-                <p className="mt-1 text-sm">Dale like a un drop para guardarlo aqui</p>
-              </>
-            ) : activeTab === 'recientes' ? (
-              <>
-                <p className="mb-2 text-2xl">Recientes</p>
-                <p className="font-semibold text-white">Sin drops esta semana</p>
-                <p className="mt-1 text-sm">Los drops que agregues apareceran aqui durante 7 dias</p>
-              </>
-            ) : (
-              <p>No hay drops todavia</p>
-            )}
-          </div>
+          activeTab === 'favoritos' ? (
+            <EmptyState
+              icon="❤️"
+              title="Sin favoritos aun"
+              description="Dale like a un drop para guardarlo aqui y verlo mas tarde"
+            />
+          ) : activeTab === 'recientes' ? (
+            <EmptyState
+              icon="🕐"
+              title="Sin drops esta semana"
+              description="Los drops que agregues apareceran aqui durante 7 dias"
+            />
+          ) : (
+            <EmptyState
+              icon="✨"
+              title="No hay drops todavia"
+              description="Explora y agrega nuevos drops para comenzar"
+            />
+          )
         ) : (
           <div className="flex flex-col gap-3 px-2 py-3">
             {displayedDrops.map((drop) => (

@@ -11,6 +11,15 @@ import { Progress } from '@/components/Progress';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { cn } from '@/lib/utils';
 import { exportData } from '@/lib/exportImport';
+import {
+  Home,
+  Compass,
+  TrendingUp,
+  Brain,
+  Layers,
+  Settings as SettingsIcon,
+  Menu,
+} from 'lucide-react';
 
 type Tab = 'feed' | 'explore' | 'progress' | 'quiz' | 'collections' | 'settings';
 
@@ -138,40 +147,62 @@ function AppContent() {
       ) : null}
 
       <div className="flex h-screen flex-col lg:hidden">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[rgba(15,20,29,0.9)] px-4 py-4 backdrop-blur-xl">
-          <button onClick={() => setSidebarOpen(true)} className="text-2xl text-white">
-            =
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/6 bg-[linear-gradient(180deg,rgba(15,20,29,0.96),rgba(13,17,23,0.98))] px-4 py-3 backdrop-blur-xl shadow-[0_4px_20px_rgba(2,8,23,0.4)]">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(21,27,37,0.96),rgba(16,21,30,0.98))] text-white/70 shadow-[6px_6px_14px_rgba(2,8,23,0.32),-4px_-4px_10px_rgba(255,255,255,0.02)] transition-all hover:text-white active:scale-95"
+          >
+            <Menu className="h-5 w-5" />
           </button>
           <div className="font-display text-xl font-black tracking-[-0.05em] text-white">
             BrainDrop
           </div>
-          <div className="w-8" />
+          <div className="h-10 w-10" />
         </header>
 
         <main className="flex-1 overflow-y-auto pb-20">{renderContent()}</main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/6 bg-[rgba(15,20,29,0.94)] backdrop-blur-xl">
-          <div className="flex justify-around px-2 py-2">
+        <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/6 bg-[linear-gradient(180deg,rgba(15,20,29,0.96),rgba(13,17,23,0.98))] px-2 pb-2 pt-2 backdrop-blur-xl shadow-[0_-8px_32px_rgba(2,8,23,0.4)]">
+          <div className="flex items-center justify-around gap-1">
             {[
-              { id: 'feed', icon: 'Home', label: 'Feed' },
-              { id: 'explore', icon: 'Find', label: 'Explorar' },
-              { id: 'progress', icon: 'Track', label: 'Progreso' },
-              { id: 'quiz', icon: 'Quiz', label: 'Quiz' },
-              { id: 'collections', icon: 'Stack', label: 'Cols' },
-              { id: 'settings', icon: 'Prefs', label: 'Config' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as Tab)}
-                className={cn(
-                  'flex flex-col items-center rounded-[18px] px-2 py-2 text-[10px]',
-                  activeTab === item.id ? 'text-white' : 'text-white/42'
-                )}
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em]">{item.icon}</span>
-                <span className="mt-1">{item.label}</span>
-              </button>
-            ))}
+              { id: 'feed', Icon: Home, label: 'Feed' },
+              { id: 'explore', Icon: Compass, label: 'Explorar' },
+              { id: 'progress', Icon: TrendingUp, label: 'Progreso' },
+              { id: 'quiz', Icon: Brain, label: 'Quiz' },
+              { id: 'collections', Icon: Layers, label: 'Cols' },
+              { id: 'settings', Icon: SettingsIcon, label: 'Config' },
+            ].map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as Tab)}
+                  className={cn(
+                    'relative flex flex-col items-center gap-1 rounded-2xl px-3 py-2 transition-all duration-200',
+                    isActive
+                      ? 'text-white'
+                      : 'text-white/42 hover:text-white/70'
+                  )}
+                >
+                  {isActive && (
+                    <div className="absolute -top-0.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#7c3aed] to-[#2563eb] shadow-[0_0_12px_rgba(124,58,237,0.6)]" />
+                  )}
+                  <div
+                    className={cn(
+                      'flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-200',
+                      isActive
+                        ? 'border-[#7c3aed]/30 bg-[linear-gradient(180deg,rgba(124,58,237,0.15),rgba(37,99,235,0.08))] shadow-[inset_2px_2px_6px_rgba(2,8,23,0.4),inset_-1px_-1px_4px_rgba(255,255,255,0.03),0_4px_12px_rgba(124,58,237,0.2)]'
+                        : 'border-white/5 bg-[linear-gradient(180deg,rgba(21,27,37,0.96),rgba(16,21,30,0.98))] shadow-[4px_4px_10px_rgba(2,8,23,0.28),-3px_-3px_8px_rgba(255,255,255,0.015)]'
+                    )}
+                  >
+                    <item.Icon className={cn('h-[18px] w-[18px] transition-transform duration-200', isActive && 'scale-110')} />
+                  </div>
+                  <span className={cn('text-[10px] font-semibold tracking-[0.04em]', isActive && 'text-white/90')}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </nav>
       </div>

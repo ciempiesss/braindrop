@@ -92,24 +92,24 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0a0a0a] w-full sm:w-[500px] sm:rounded-2xl border border-[#2f3336] shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[600px]">
-        <div className="flex items-center justify-between p-4 border-b border-[#2f3336]">
+      <div className="bg-background w-full sm:w-[500px] sm:rounded-2xl border border-border shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[600px]">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="text-xl">🤖</span>
-            <h3 className="font-bold text-[#e7e9ea]">Asistente IA</h3>
+            <h3 className="font-bold text-foreground">Asistente IA</h3>
           </div>
           <button 
             onClick={onClose} 
-            className="text-[#71767b] hover:text-[#e7e9ea] text-xl transition-colors"
+            className="text-muted-foreground hover:text-foreground text-xl transition-colors"
           >
             ✕
           </button>
         </div>
 
         {dropTitle && (
-          <div className="px-4 py-2 bg-[#16181c] border-b border-[#2f3336]">
-            <p className="text-xs text-[#71767b]">Contexto:</p>
-            <p className="text-sm text-[#a78bfa] font-medium truncate">{dropTitle}</p>
+          <div className="px-4 py-2 bg-card border-b border-border">
+            <p className="text-xs text-muted-foreground">Contexto:</p>
+            <p className="text-sm text-primary font-medium truncate">{dropTitle}</p>
           </div>
         )}
 
@@ -126,8 +126,8 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
                 className={cn(
                   'max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed',
                   msg.role === 'user'
-                    ? 'bg-[#7c3aed] text-white'
-                    : 'bg-[#16181c] text-[#d4d4d4] border border-[#2f3336]'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card text-foreground border border-border'
                 )}
               >
                 <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
@@ -136,24 +136,24 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-[#16181c] rounded-2xl px-4 py-3 border border-[#2f3336]">
+              <div className="bg-card rounded-2xl px-4 py-3 border border-border">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-[#7c3aed] rounded-full animate-bounce" />
-                  <span className="w-2 h-2 bg-[#7c3aed] rounded-full animate-bounce [animation-delay:0.1s]" />
-                  <span className="w-2 h-2 bg-[#7c3aed] rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <span className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="p-3 border-t border-[#2f3336]">
+        <div className="p-3 border-t border-border">
           <div className="flex gap-2 mb-2 overflow-x-auto">
             {suggestions.map((s) => (
               <button
                 key={s}
                 onClick={() => setInput(s)}
-                className="px-3 py-1.5 bg-[#16181c] border border-[#2f3336] rounded-full text-xs text-[#a0a0a0] hover:border-[#7c3aed] hover:text-[#7c3aed] transition-colors whitespace-nowrap"
+                className="px-3 py-1.5 bg-card border border-border rounded-full text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors whitespace-nowrap"
               >
                 {s}
               </button>
@@ -166,12 +166,12 @@ export function AIChat({ dropTitle, dropContent, dropType, onClose }: AIChatProp
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-              className="flex-1 bg-[#16181c] border border-[#2f3336] rounded-full px-4 py-2.5 text-[15px] focus:outline-none focus:border-[#7c3aed] text-[#e7e9ea] placeholder:text-[#71767b]"
+              className="flex-1 bg-card border border-border rounded-full px-4 py-2.5 text-[15px] focus:outline-none focus:border-primary text-foreground placeholder:text-muted-foreground"
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="px-5 py-2.5 bg-[#7c3aed] text-white rounded-full font-semibold hover:bg-[#6d28d9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-full font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Enviar
             </button>
