@@ -1,20 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { loadSettings } from '@/components/Settings';
 import { CURATED_QUESTIONS, getCuratedFiltered } from '@/data/quizQuestions';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { generateSmartQuizQuestion } from '@/lib/groq';
 import { generateLocalQuestion } from '@/lib/quizGenerators';
+import { shuffleArray } from '@/lib/utils';
 import type { Drop, QuizAnswerRecord, QuizConfig, QuizQuestion } from '@/types';
-
-function shuffleArray<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
-  }
-  return copy;
-}
 
 function moveCorrectIndex(options: string[], fromIndex: number, toIndex: number): { options: string[]; correctIndex: number } {
   if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= options.length) {
@@ -217,6 +209,7 @@ export interface UseQuizReturn {
   progress: { current: number; total: number };
   sessionStats: { correct: number; incorrect: number; percent: number };
   failedItems: FailedItem[];
+  iaFallbackCount: number;
   availableDrops: number;
   dueDrops: number;
   curatedAvailable: number;
@@ -252,6 +245,8 @@ export function useQuiz(): UseQuizReturn {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationTotal, setGenerationTotal] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
+  const [iaFallbackCount, setIaFallbackCount] = useState(0);
+  const answeredIndicesRef = useRef<Set<number>>(new Set());
 
   const setConfig = useCallback((partial: Partial<QuizConfig>) => {
     setConfigState((prev) => ({ ...prev, ...partial }));
@@ -303,11 +298,14 @@ export function useQuiz(): UseQuizReturn {
   }, [config.mode, curatedAvailable, availableDrops]);
 
   const startSession = useCallback(async () => {
+    setPhase('generating');
     setCurrentIndex(0);
     setAnswers([]);
     setStreakCount(0);
     setGenerationProgress(0);
     setGenerationTotal(0);
+    setIaFallbackCount(0);
+    answeredIndicesRef.current.clear();
 
     if (config.mode === 'curated') {
       const curatedBase =
@@ -346,20 +344,25 @@ export function useQuiz(): UseQuizReturn {
       setGenerationTotal(selected.length);
       const generated: QuizQuestion[] = [];
       const batchSize = 3;
+      let fallbackCount = 0;
 
       for (let index = 0; index < selected.length; index += batchSize) {
         const batch = selected.slice(index, index + batchSize);
         const results = await Promise.all(
           batch.map((drop) =>
-            generateSmartQuizQuestion(drop, config.difficulty).catch(() =>
-              generateLocalQuestion(drop, drops, config.difficulty)
-            )
+            generateSmartQuizQuestion(drop, config.difficulty).catch(() => {
+              fallbackCount += 1;
+              return generateLocalQuestion(drop, drops, config.difficulty);
+            })
           )
         );
         generated.push(...results);
         setGenerationProgress(generated.length);
       }
 
+      if (fallbackCount > 0) {
+        setIaFallbackCount(fallbackCount);
+      }
       setQuestions(finalizeSessionQuestions(generated));
       setPhase('playing');
       return;
@@ -378,8 +381,9 @@ export function useQuiz(): UseQuizReturn {
       const question = questions[currentIndex];
       if (!question) return;
 
-      // Evita doble registro por taps rápidos.
-      if (answers.length > currentIndex) return;
+      if (answeredIndicesRef.current.has(currentIndex)) return;
+
+      answeredIndicesRef.current.add(currentIndex);
 
       const resolvedQuality = quality ?? (correct ? 4 : 1);
       setAnswers((prev) => [
@@ -400,7 +404,7 @@ export function useQuiz(): UseQuizReturn {
         setDropPreference(question.dropId, preference);
       }
     },
-    [answers.length, currentIndex, questions, setDropPreference]
+    [currentIndex, questions, setDropPreference]
   );
 
   const nextQuestion = useCallback(() => {
@@ -420,6 +424,8 @@ export function useQuiz(): UseQuizReturn {
     setGenerationProgress(0);
     setGenerationTotal(0);
     setStreakCount(0);
+    setIaFallbackCount(0);
+    answeredIndicesRef.current.clear();
   }, []);
 
   const currentQuestion = questions[currentIndex] ?? null;
@@ -471,6 +477,7 @@ export function useQuiz(): UseQuizReturn {
     progress,
     sessionStats,
     failedItems,
+    iaFallbackCount,
     availableDrops,
     dueDrops,
     curatedAvailable,

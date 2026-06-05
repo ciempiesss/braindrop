@@ -19,7 +19,7 @@ interface DropCardProps {
   onEdit?: (drop: Drop) => void;
 }
 
-const STORAGE_KEY = 'braindrop_settings';
+const STORAGE_KEY = 'bd_settings';
 type FontSize = 'sm' | 'md' | 'lg' | 'xl';
 
 const FONT_SIZE_SCALE: Record<FontSize, string> = {
@@ -100,26 +100,6 @@ function renderInline(text: string): string {
   );
 }
 
-function hue(tag: string): number {
-  let hash = 0;
-  for (let index = 0; index < tag.length; index += 1) hash = tag.charCodeAt(index) + ((hash << 5) - hash);
-  return Math.abs(hash) % 360;
-}
-
-function preferenceLabel(value?: 'like' | 'dislike'): string {
-  if (value === 'like') return 'Me gusto';
-  if (value === 'dislike') return 'No me gusto';
-  return 'Sin opinion';
-}
-
-function primaryLabel(type: Drop['type']): string {
-  return { definition: 'Idea central', ruptura: 'Golpe principal', puente: 'Conexion', operativo: 'Haz esto', code: 'Clave' }[type];
-}
-
-function secondaryLabel(type: Drop['type']): string {
-  return { definition: 'Cuando usarlo', ruptura: 'Quedate con esto', puente: 'Te conecta con', operativo: 'Por que sirve', code: 'Que mirar' }[type];
-}
-
 function CodeBlock({ code }: { code?: string }) {
   if (!code) return null;
   return (
@@ -142,6 +122,7 @@ function CodeBlock({ code }: { code?: string }) {
 export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onEdit }: DropCardProps) {
   const [fontScale, setFontScale] = useState(() => getFontScale());
   const [expanded, setExpanded] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editMode, setEditMode] = useState<'manual' | 'ai'>('manual');
   const [aiInstruction, setAiInstruction] = useState('');
@@ -156,12 +137,6 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
   const hook = useMemo(() => hookFrom(drop.content), [drop.content]);
   const detail = useMemo(() => detailFrom(drop.content, hook), [drop.content, hook]);
   const lines = useMemo(() => actionLines(drop.content), [drop.content]);
-  const secondary = useMemo(() => {
-    if (drop.type === 'operativo' && detail) return detail;
-    if (detail && detail !== hook) return detail;
-    if (drop.tags.length > 0) return `Conecta con ${drop.tags.slice(0, 3).map((tag) => `#${tag}`).join(', ')}.`;
-    return '';
-  }, [detail, drop.tags, drop.type, hook]);
 
   const handleViewed = useCallback(() => {
     if (onMarkViewed) onMarkViewed(drop.id);
@@ -177,6 +152,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
 
   useEffect(() => {
     setExpanded(false);
+    setShowFullContent(false);
   }, [drop.id]);
 
   const toggleLike = onToggleLike || contextToggleLike;
@@ -191,114 +167,98 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
         if (!expanded) setExpanded(true);
       }}
       className={cn(
-        'group relative w-full overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,27,37,0.96),rgba(14,20,29,0.98))] shadow-[0_24px_64px_rgba(2,8,23,0.38)] transition-all duration-200 ease-out',
-        !expanded && 'cursor-pointer hover:border-white/15 hover:bg-[linear-gradient(180deg,rgba(24,32,44,0.98),rgba(15,21,31,1))]'
+        'group relative w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0f1318] transition-all duration-200 ease-out',
+        !expanded && 'cursor-pointer hover:border-white/[0.12]'
       )}
     >
-      <div className={cn('h-1.5 w-full bg-gradient-to-r', style.rail)} />
-      <div className={cn('px-5', expanded ? 'pb-5 pt-4' : 'py-4')}>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.01em]', style.chip)}>
-            <span className="opacity-80">{style.icon}</span>
-            {style.label}
-          </span>
-          <span className="rounded-full border border-violet-300/20 bg-violet-500/12 px-3 py-1 text-[11px] font-semibold text-violet-100/90">
-            {subcategory}
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">{meta.time}</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{meta.load}</span>
-          {expanded ? <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/72">{preferenceLabel(preference)}</span> : null}
-        </div>
+      <div className={cn('px-4', expanded ? 'pb-4 pt-3' : 'py-3')}>
+        {expanded ? (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', style.chip)}>
+              {style.icon} {style.label}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] text-white/60">{subcategory}</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] text-white/60">{meta.time}</span>
+          </div>
+        ) : null}
 
-        <h3 className="font-display font-black tracking-[-0.04em] text-white" style={{ fontSize: `calc(${expanded ? 29 : 24}px * ${fontScale})`, lineHeight: expanded ? '1.03' : '1.08' }}>
+        <h3 className="font-display font-bold tracking-tight text-white" style={{ fontSize: `calc(${expanded ? 20 : 17}px * ${fontScale})`, lineHeight: expanded ? '1.2' : '1.3' }}>
           {drop.title}
         </h3>
 
-        <p className="mt-3 max-w-[44ch] text-white/90" style={{ fontSize: `calc(${expanded ? 18 : 17}px * ${fontScale})`, lineHeight: expanded ? '1.62' : '1.56' }}>
-          <strong className="font-extrabold text-white">{hook}</strong>
-          {!expanded && detail ? <span className="text-white/78"> {detail.slice(0, 110)}{detail.length > 110 ? '...' : ''}</span> : null}
-        </p>
+        {!expanded ? (
+          <p className="mt-1.5 text-[13px] leading-snug text-white/55" style={{ fontSize: `calc(13px * ${fontScale})` }}>
+            {hook}
+            {detail && detail !== hook ? ` ${showFullContent ? detail : detail.slice(0, 80)}${!showFullContent && detail.length > 80 ? '...' : ''}` : ''}
+          </p>
+        ) : (
+          <p className="mt-2 text-[14px] leading-relaxed text-white/80" dangerouslySetInnerHTML={{ __html: contentHtml }} />
+        )}
+
+        {!expanded && detail && detail.length > 80 ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFullContent(!showFullContent);
+            }}
+            className="mt-1.5 text-[11px] text-violet-400/60 hover:text-violet-300"
+          >
+            {showFullContent ? 'ver menos' : 'ver mas'}
+          </button>
+        ) : null}
 
         {!expanded ? (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap gap-2">
-              {drop.tags.slice(0, 2).map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border px-2.5 py-1 text-[11px] font-medium"
-                  style={{ color: `hsl(${hue(tag)}, 65%, 78%)`, borderColor: `hsla(${hue(tag)}, 60%, 62%, 0.16)`, backgroundColor: `hsla(${hue(tag)}, 60%, 52%, 0.12)` }}
-                >
-                  #{tag}
-                </span>
-              ))}
-              </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (window.confirm('Eliminar este drop? Esta accion no se puede deshacer.')) {
-                    onDelete?.(drop.id);
-                  }
-                }}
-                className="rounded-full border border-rose-400/20 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
-              >
-                Eliminar
-              </button>
-              <span className="shrink-0 text-[12px] text-white/40">{formatRelativeDate(drop.createdAt)}</span>
-            </div>
+          <div className="mt-2.5 flex items-center justify-end gap-2">
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                if (window.confirm('Eliminar este drop?')) {
+                  onDelete?.(drop.id);
+                }
+              }}
+              className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-white/40 hover:border-rose-400/30 hover:text-rose-300"
+            >
+              Eliminar
+            </button>
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleLike(drop.id);
+              }}
+              className={cn('rounded-lg border px-2 py-1 text-[10px] transition-colors', drop.liked ? 'border-rose-400/30 text-rose-300' : 'border-white/10 text-white/40 hover:border-white/25 hover:text-white/70')}
+            >
+              {drop.liked ? 'Te gusta' : 'Me gusta'}
+            </button>
+            <span className="text-[10px] text-white/30">{formatRelativeDate(drop.createdAt)}</span>
           </div>
         ) : null}
 
         {expanded ? (
           <>
-            <div className="mt-5 grid gap-3">
-              <div className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
-                <span className="mb-2 block text-[12px] font-extrabold uppercase tracking-[0.08em] text-white/55">{primaryLabel(drop.type)}</span>
-                {drop.type === 'operativo' && lines.length > 0 ? (
-                  <ul className="grid gap-2 pl-5">
-                    {lines.map((line) => (
-                      <li key={line} className="text-[16px] leading-7 text-white/84">{line}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-[16px] leading-7 text-white/84" dangerouslySetInnerHTML={{ __html: contentHtml }} />
-                )}
+            {drop.type === 'operativo' && lines.length > 0 ? (
+              <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <ul className="space-y-1.5">
+                  {lines.map((line) => (
+                    <li key={line} className="text-[13px] leading-relaxed text-white/70">{line}</li>
+                  ))}
+                </ul>
               </div>
+            ) : null}
 
-              {secondary ? (
-                <div className="rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
-                  <span className="mb-2 block text-[12px] font-extrabold uppercase tracking-[0.08em] text-white/55">{secondaryLabel(drop.type)}</span>
-                  <p className="text-[16px] leading-7 text-white/82">{secondary}</p>
-                </div>
-              ) : null}
+            {drop.visualContent ? <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-white/[0.06] bg-[#111827] p-3 text-[11px] text-violet-100/80">{strip(drop.visualContent)}</pre> : null}
+            {drop.codeSnippet ? <CodeBlock code={drop.codeSnippet} /> : null}
 
-              {drop.visualContent ? <pre className="font-code whitespace-pre-wrap rounded-[20px] border border-white/10 bg-[#111827] p-4 text-xs text-violet-100/85">{strip(drop.visualContent)}</pre> : null}
-              {drop.codeSnippet ? <CodeBlock code={drop.codeSnippet} /> : null}
-
-              <div className={cn('rounded-[18px] border p-4 text-[14px] leading-6', style.hint)}>
-                {drop.type === 'operativo'
-                  ? 'Este drop esta pensado para convertirse en accion sin pedirte demasiada energia ejecutiva.'
-                  : drop.type === 'ruptura'
-                    ? 'La fuerza viene de una idea clara y dos bloques maximos, no de un muro de texto.'
-                    : drop.type === 'puente'
-                      ? 'Este formato sirve para conectar conceptos y volver a ellos rapido mas tarde.'
-                      : drop.type === 'code'
-                        ? 'El codigo se mantiene legible y la explicacion queda separada para no competir por atencion.'
-                        : 'La lectura queda separada en que es y para que te sirve, que es mas amable para sesiones cortas.'}
-              </div>
-            </div>
-
-            <div className="mt-4 flex gap-2">
+            <div className="mt-3 flex gap-2">
               <button
                 onClick={(event) => {
                   event.stopPropagation();
                   setDropPreference(drop.id, preference === 'like' ? null : 'like');
                 }}
                 className={cn(
-                  'flex-1 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold transition-colors',
+                  'flex-1 rounded-xl border py-2 text-[12px] font-semibold transition-colors',
                   preference === 'like'
-                    ? 'border-emerald-300/40 bg-emerald-500/20 text-emerald-100'
-                    : 'border-emerald-400/20 bg-emerald-500/5 text-emerald-200 hover:border-emerald-300/40 hover:bg-emerald-500/10'
+                    ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
+                    : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
                 )}
               >
                 Me gusto
@@ -309,25 +269,25 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   setDropPreference(drop.id, preference === 'dislike' ? null : 'dislike');
                 }}
                 className={cn(
-                  'flex-1 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold transition-colors',
+                  'flex-1 rounded-xl border py-2 text-[12px] font-semibold transition-colors',
                   preference === 'dislike'
-                    ? 'border-rose-300/40 bg-rose-500/20 text-rose-100'
-                    : 'border-rose-400/20 bg-rose-500/5 text-rose-200 hover:border-rose-300/40 hover:bg-rose-500/10'
+                    ? 'border-rose-400/30 bg-rose-500/15 text-rose-200'
+                    : 'border-white/10 text-white/50 hover:border-white/20 hover:text-white/70'
                 )}
               >
                 No me gusto
               </button>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/8 pt-4">
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/[0.05] pt-3">
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (window.confirm('Eliminar este drop? Esta accion no se puede deshacer.')) {
+                  if (window.confirm('Eliminar este drop?')) {
                     onDelete?.(drop.id);
                   }
                 }}
-                className="rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-[12px] font-semibold text-rose-100 transition-colors hover:border-rose-300/35"
+                className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/40 hover:border-rose-400/30 hover:text-rose-300"
               >
                 Eliminar
               </button>
@@ -337,7 +297,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   event.stopPropagation();
                   setShowEditModal(true);
                 }}
-                className={cn('rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-white/78 transition-colors', style.hover)}
+                className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/40 hover:border-white/25 hover:text-white/70"
               >
                 Editar
               </button>
@@ -346,7 +306,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   event.stopPropagation();
                   toggleLike(drop.id);
                 }}
-                className={cn('rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors', drop.liked ? 'border-rose-300/20 bg-rose-500/10 text-rose-100' : 'border-white/10 bg-white/5 text-white/78 hover:border-rose-300/25 hover:text-rose-100')}
+                className={cn('rounded-lg border px-2.5 py-1 text-[11px] transition-colors', drop.liked ? 'border-rose-400/30 text-rose-300' : 'border-white/10 text-white/40 hover:border-white/25 hover:text-white/70')}
               >
                 {drop.liked ? 'Guardado' : 'Guardar'}
               </button>
@@ -355,11 +315,11 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                   event.stopPropagation();
                   onAI?.();
                 }}
-                className={cn('rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-white/78 transition-colors', style.hover)}
+                className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/40 hover:border-white/25 hover:text-white/70"
               >
                 IA
               </button>
-              <span className="ml-auto text-[12px] text-white/40">{formatRelativeDate(drop.createdAt)}</span>
+              <span className="ml-auto text-[10px] text-white/30">{formatRelativeDate(drop.createdAt)}</span>
             </div>
 
             <button
@@ -367,7 +327,7 @@ export function DropCard({ drop, onAI, onToggleLike, onMarkViewed, onDelete, onE
                 event.stopPropagation();
                 setExpanded(false);
               }}
-              className="mt-4 w-full rounded-2xl border border-white/8 bg-white/[0.03] py-2.5 text-[12px] font-semibold text-white/58 transition-colors hover:text-white/88"
+              className="mt-3 w-full rounded-xl border border-white/8 bg-white/[0.02] py-2 text-[11px] text-white/40 transition-colors hover:text-white/70 hover:border-white/15"
             >
               Cerrar
             </button>

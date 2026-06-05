@@ -2,7 +2,8 @@ import type { QuizQuestion, Difficulty } from '@/types';
 import { normalizeTags } from '@/lib/dropContent';
 export type { QuizQuestion };
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_API_URL = '/api/groq';
+const AI_MODEL = 'deepseek-v4-pro';
 
 interface GroqMessage {
   role: 'system' | 'user' | 'assistant';
@@ -29,12 +30,6 @@ export async function generateDropsFromTopic(
   topic: string,
   collectionHint: string
 ): Promise<GeneratedDrop[]> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return generateFallbackDrops(topic);
-  }
-
   const systemPrompt = `Eres un generador de "drops" de conocimiento para una app de aprendizaje con repetición espaciada.
 Un drop es una unidad de conocimiento breve, densa y cognitivamente distinta — estilo Twitter pero con profundidad.
 
@@ -79,11 +74,10 @@ Genera los drops que consideres necesarios para cubrir este tema con profundidad
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -145,12 +139,6 @@ Genera los drops que consideres necesarios para cubrir este tema con profundidad
 }
 
 export async function structureRawThought(rawText: string): Promise<GeneratedDrop> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return structureRawFallback(rawText);
-  }
-
   const systemPrompt = `Conviertes pensamientos crudos en drops de conocimiento para una app de aprendizaje con repetición espaciada.
 
 Un drop tiene 5 tipos:
@@ -174,11 +162,10 @@ Responde ÚNICAMENTE con JSON válido:
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Estructura este pensamiento en un drop:\n\n"${rawText}"` },
@@ -239,12 +226,6 @@ export async function editDropWithAI(
   drop: { title: string; content: string; type: string; tags: string[]; codeSnippet?: string },
   instruction: string
 ): Promise<Omit<GeneratedDrop, 'type'> & { type: GeneratedDrop['type'] }> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return { ...drop, type: drop.type as GeneratedDrop['type'] };
-  }
-
   const systemPrompt = `Eres un editor de "drops" de conocimiento para una app de aprendizaje.
 Un drop tiene: título, contenido (2-5 oraciones densas), tipo, tags, y opcionalmente codeSnippet.
 
@@ -278,11 +259,10 @@ Instrucción: ${instruction}`;
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -325,7 +305,7 @@ function generateFallbackDrops(topic: string): GeneratedDrop[] {
   return [
     {
       title: topic,
-      content: `Para usar generación con IA, configura tu API key de Groq en el archivo .env:\n\nVITE_GROQ_API_KEY=tu_key\n\nObtén una en console.groq.com — es gratis.`,
+      content: `La API de Groq no está disponible en este momento. Intenta de nuevo más tarde.`,
       type: 'definition',
       tags: ['pendiente', 'ia'],
     },
@@ -336,12 +316,6 @@ export async function chatWithGroq(
   messages: GroqMessage[],
   context?: { title: string; content: string; type: string }
 ): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return simulateResponse(context);
-  }
-
   const systemPrompt = `Eres un asistente de aprendizaje amigable y curioso. Ayudas al usuario a profundizar en conceptos, hacer conexiones, y entender mejor lo que está aprendiendo.
 
 ${context ? `El usuario está preguntando sobre este "drop" de conocimiento:
@@ -355,11 +329,10 @@ Responde de forma conversacional, breve (2-3 párrafos máximo), y haz preguntas
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
@@ -392,12 +365,7 @@ function simulateResponse(context?: { title: string; content: string; type: stri
   
   return `${randomResponse}
 
-**Nota:** Para usar IA real, configura tu API key de Groq en el archivo \`.env\`
-
-1. Ve a https://console.groq.com/
-2. Crea una API key
-3. Agrega \`VITE_GROQ_API_KEY=tu_key\` en el archivo .env
-4. Reinicia el servidor
+El servicio de IA no está disponible en este momento. Intenta de nuevo más tarde.
 
 ¿Te gustaría que te ayude a profundizar en "${context?.title}" desde otra perspectiva?`;
 }
@@ -443,12 +411,6 @@ export async function generateSmartQuizQuestion(
   drop: { id: string; title: string; content: string; type: string; tags: string[] },
   difficulty: Difficulty = 'medio'
 ): Promise<QuizQuestion> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
-    return generateFallbackQuizQuestion(drop, difficulty);
-  }
-
   const difficultyHint = DIFFICULTY_PROMPT[difficulty] ?? DIFFICULTY_PROMPT.medio;
 
   const systemPrompt = `Eres un generador de preguntas de quiz para aprendizaje.
@@ -481,11 +443,10 @@ Responde ÚNICAMENTE con JSON válido:
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

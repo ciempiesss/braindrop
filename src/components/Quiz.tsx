@@ -49,10 +49,15 @@ export function Quiz({ onClose }: { onClose?: () => void }) {
               style={{ width: generationTotal > 0 ? `${(generationProgress / generationTotal) * 100}%` : '0%' }}
             />
           </div>
+          {quiz.iaFallbackCount > 0 && (
+            <p className="text-amber-400 text-xs mt-2">
+              {quiz.iaFallbackCount} preguntas se generaron localmente (servicio IA no disponible)
+            </p>
+          )}
         </div>
       )}
 
-      {phase === 'playing' && <QuizPlay quiz={quiz} />}
+      {phase === 'playing' && <QuizPlay key={quiz.currentIndex} quiz={quiz} />}
 
       {phase === 'result' && <QuizResult quiz={quiz} />}
     </div>

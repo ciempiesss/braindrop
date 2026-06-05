@@ -1,4 +1,5 @@
 import type { QuizQuestion } from '@/types';
+import { shuffleArray } from '@/lib/utils';
 
 type Difficulty = QuizQuestion['difficulty'];
 
@@ -95,15 +96,6 @@ function flash(input: FlashInput): QuizQuestion {
     answer: input.answer,
     explanation: input.explanation,
   };
-}
-
-function shuffleArray<T>(list: T[]): T[] {
-  const arr = [...list];
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
 }
 
 export const CURATED_QUESTIONS: QuizQuestion[] = [

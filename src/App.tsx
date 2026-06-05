@@ -8,6 +8,7 @@ import { Collections } from '@/components/Collections';
 import { Settings, applyFontSizeFromSettings } from '@/components/Settings';
 import { Explore } from '@/components/Explore';
 import { Progress } from '@/components/Progress';
+import { SWUpdateToast } from '@/components/SWUpdateToast';
 import { useBrainDrop } from '@/hooks/useBrainDrop';
 import { cn } from '@/lib/utils';
 import { exportData } from '@/lib/exportImport';
@@ -110,6 +111,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(98,121,170,0.14),transparent_32%),linear-gradient(180deg,#0d1118_0%,#10151d_100%)]">
       <StorageFullBanner />
+      <SWUpdateToast />
 
       <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-[260px] lg:z-50">
         <Sidebar

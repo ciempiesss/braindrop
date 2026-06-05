@@ -55,10 +55,10 @@ interface BrainDropContextType {
 
 const BrainDropContext = createContext<BrainDropContextType | undefined>(undefined);
 
-const KEY_STREAK = 'braindrop_streak';
-const KEY_PREFERENCES = 'braindrop_drop_preferences_v1';
-const KEY_PREFERENCE_EVENTS = 'braindrop_drop_preference_events_v1';
-const KEY_CONTENT_MIGRATION = 'braindrop_content_migration_v2';
+const KEY_STREAK = 'bd_streak';
+const KEY_PREFERENCES = 'bd_drop_preferences_v1';
+const KEY_PREFERENCE_EVENTS = 'bd_drop_preference_events_v1';
+const KEY_CONTENT_MIGRATION = 'bd_content_migration_v2';
 
 function loadStreak(): Streak {
   try {

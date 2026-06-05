@@ -9,7 +9,7 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 5000;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 30;
-const MINIMIZED_KEY = 'braindrop_compose_minimized';
+const MINIMIZED_KEY = 'bd_compose_minimized';
 
 const SHELL_BASE = '#121722';
 const SHELL_RAISED =

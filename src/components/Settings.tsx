@@ -17,7 +17,7 @@ interface Settings {
   weeklyGoal: number;
 }
 
-const STORAGE_KEY = 'braindrop_settings';
+const STORAGE_KEY = 'bd_settings';
 
 const FONT_SIZE_OPTIONS: { value: FontSize; label: string; size: string }[] = [
   { value: 'sm', label: 'Pequeño', size: '14px' },
@@ -83,6 +83,7 @@ export function Settings() {
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [importError, setImportError] = useState('');
+  const [importToast, setImportToast] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -157,6 +158,7 @@ export function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportError('');
+    setImportToast('');
     try {
       const data = await importData(file);
       // Merge: existing drops/collections not overwritten by same ID
@@ -169,7 +171,8 @@ export function Settings() {
       const mergedCols = [...collections, ...newCols];
       localStorage.setItem('bd_drops', JSON.stringify(mergedDrops));
       localStorage.setItem('bd_collections', JSON.stringify(mergedCols));
-      alert(`Importados: ${newDrops.length} drops y ${newCols.length} colecciones nuevas. Recarga la app para ver los cambios.`);
+      setImportToast(`Importados: ${newDrops.length} drops y ${newCols.length} colecciones nuevas. Recargando...`);
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Error al importar');
     }
@@ -181,6 +184,12 @@ export function Settings() {
       <header className="sticky top-0 z-10 border-b border-white/6 bg-[rgba(15,20,29,0.86)] p-4 backdrop-blur-xl">
         <h1 className="font-display text-[24px] font-black tracking-[-0.05em] text-white">Configuracion</h1>
       </header>
+
+      {importToast ? (
+        <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-2 text-sm text-white shadow-lg">
+          {importToast}
+        </div>
+      ) : null}
 
       <div className="p-4 space-y-6">
         <section className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,31,42,0.96),rgba(16,22,31,0.98))] p-4 shadow-[14px_14px_34px_rgba(2,8,23,0.28),-8px_-8px_18px_rgba(255,255,255,0.02)]">

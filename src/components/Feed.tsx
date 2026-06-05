@@ -14,7 +14,7 @@ import {
 } from '@/lib/feedAlgorithm';
 import { generateDropsFromTopic } from '@/lib/groq';
 
-const SETTINGS_KEY = 'braindrop_settings';
+const SETTINGS_KEY = 'bd_settings';
 
 function loadVisibleCollections(): string[] {
   try {
@@ -569,7 +569,7 @@ export function Feed({
             />
           )
         ) : (
-          <div className="flex flex-col gap-3 px-2 py-3">
+          <div className="flex flex-col gap-2 px-1.5 py-2">
             {displayedDrops.map((drop) => (
               <DropCard
                 key={drop.id}
